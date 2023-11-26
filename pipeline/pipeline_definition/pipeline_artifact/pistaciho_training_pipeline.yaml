@@ -683,12 +683,11 @@ deploymentSpec:
           \ Dataset to be used for model inference\n        psi_artifact (Input[Artifact]):\
           \ PSI object containing statistics computed at training time\n        psi_results_json\
           \ (Output[Artifact]): PSI results as json file\n\n    Returns:\n       \
-          \ None\n    \"\"\"\n\n    from infer_monitoring import eval_psi\n    from\
-          \ pistachio.data_handling import read_from_json\n\n    psi_results_json.path\
-          \ = psi_results_json.path + '.json'\n\n    eval_psi(inference_data.path,\
-          \ psi_artifact.path, psi_results_json.path)\n    # attach psi results as\
-          \ metadata\n    psi_results = read_from_json(psi_results_json.path)\n  \
-          \  inference_data.metadata['psi_evaluation_results'] = psi_results\n\n"
+          \ None\n    \"\"\"\n\n    from infer_monitor import eval_psi\n    from pistachio.data_handling\
+          \ import read_from_json\n\n    psi_results_json.path = psi_results_json.path\
+          \ + '.json'\n\n    eval_psi(inference_data.path, psi_artifact.path, psi_results_json.path)\n\
+          \    # attach psi results as metadata\n    psi_results = read_from_json(psi_results_json.path)\n\
+          \    inference_data.metadata['psi_evaluation_results'] = psi_results\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-load-data:
       container:

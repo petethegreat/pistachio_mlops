@@ -139,7 +139,7 @@ def infer_monitoring(
         None
     """
    
-    from infer_monitoring import eval_psi
+    from infer_monitor import eval_psi
     from pistachio.data_handling import read_from_json
 
     psi_results_json.path = psi_results_json.path + '.json'
