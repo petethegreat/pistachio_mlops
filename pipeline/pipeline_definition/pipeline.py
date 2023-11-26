@@ -90,6 +90,12 @@ def pistachio_training_pipeline(
         opt_n_iter=tuning_opt_n_iter,
         cv_seed=tuning_cv_seed
     )
+
+    # train model task
+    # load model to model registry/artifact registry - see where the artifact ends up
+    # evaluate on train data task 
+    # evaluate on test data task 
+
     
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   

@@ -245,16 +245,8 @@ def psi_result_logging(
     
     # setup a string for markdown content
     # include a table header
-    markdown_content = f"""
-    # PSI results
-
-    Population Stability Index evaluation
-
-    {md_note}
-
-    | Column | Datatype | Missing Values | PSI |
-    |--------|----------|----------------|-----|
-    """
+    markdown_content = f"# PSI results\nPopulation Stability Index evaluation\n\n{md_note}\n\n" + \
+        "| Column | Datatype | Missing Values | PSI |\n|--------|----------|----------------|-----|\n"
 
     # log psi metrics
     for column_name in psi_details.keys():
