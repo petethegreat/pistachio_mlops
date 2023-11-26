@@ -1,10 +1,10 @@
 #!/usr/bin/env python
-# validate data
-# run pandera
+"""evaluate_model.py
 
-#! /usr/bin/env python
-# load data from arff, train/test split on seed
-# write train/test to parquet
+take a dataset and model artifact, generate metrics and plots
+"""
+
+
 
 from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file, validate_data_with_schema
@@ -19,16 +19,27 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 #########################################################
 
 def evaluate_model():
-    """_summary_
-    """
+
+
 #########################################################
 def main():
 
     parser = ArgumentParser(
-        description="load pistachio data from input arff file, split to train/test, write to parquet"
+        description="evaluate model on a dataset and generate performance metrics and plots"
     )
-    parser.add_argument('input_file_path', type=str)
-    parser.add_argument('schema_file_path', type=str)
+    parser.add_argument('dataset_path', type=str)
+    parser.add_argument('model_pickle_path', type=str)
+    parser.add_argument('featurelist_json', type=str)
+    
+    parser.add_argument('--metric_prefix', type=str)
+    parser.add_argument('--plot_title', type=str)
+    parser.add_argument('--feature_importance_plot_path', type=str)
+    parser.add_argument('featurelist_json', type=str)
+    parser.add_argument('featurelist_json', type=str)
+    parser.add_argument('featurelist_json', type=str)
+
+
+
 
     args = parser.parse_args()
 
