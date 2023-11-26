@@ -16,13 +16,6 @@ import sys
 logger = logging.getLogger('pistachio')
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-def setup_logging():
-    """log to stdout"""
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
 #########################################################
 
 def validate_data(
@@ -44,7 +37,6 @@ def validate_data(
 #########################################################3
 
 def main():
-    setup_logging()
 
     parser = ArgumentParser(
         description="load pistachio data from input arff file, split to train/test, write to parquet"

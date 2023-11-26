@@ -4,26 +4,22 @@
 component for training a model and saving model artifact(s)
 """
 
-
-from argparse import ArgumentParser
-from pistachio.data_handling import load_parquet_file, read_from_json
-from pistachio.model_training import stuff
-
-
 import logging
 import sys
+import os
+
+from argparse import ArgumentParser
+
+from xgboost import XGBClassifier
+
+from pistachio.data_handling import load_parquet_file, read_from_json
+from pistachio.model_training import train_model, save_model_to_pickle
+
+
 
 ## logging
 logger = logging.getLogger('pistachio')
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
-
-def setup_logging():
-    """log to stdout"""
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
 
 def train_model(
     training_data_path: str,
@@ -39,17 +35,25 @@ def train_model(
         output_model_artifact_path (str): output location for model artifact
     """
 
-    data = load_parquet_file(training_data_path)
+    train_data = load_parquet_file(training_data_path)
     logger.info(f'read data from {training_data_path} ')
     features = read_from_json(features_path)
     parameters = read_from_json(optimal_parameters_json_path)
 
 
+    train_x = train_data[features]
+    train_y = train_data.Target.values
 
+    model = train_model(train_x, train_y, parameters)
 
+    # create output directory, if it does not already exist
+    output_dir = os.path.dirname(output_model_artifact_path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
 
+    save_model_to_pickle(model, output_model_artifact_path)
 
-
+    
 #########################################################
 
 def main():
@@ -61,13 +65,16 @@ def main():
     parser.add_argument('train_data', type=str)
     parser.add_argument('optimal_parameters_json', type=str)
     parser.add_argument('model_artifact', type=str)
+    parser.add_argument('feature_list_json', type=str)
+
 
     args = parser.parse_args()
 
     train_model(
         args.train_data,
         args.optimal_parameters_json,
-        args.model_artifact
+        args.model_artifact,
+        args.feature_list_json
         )
 
 if __name__ == "__main__":

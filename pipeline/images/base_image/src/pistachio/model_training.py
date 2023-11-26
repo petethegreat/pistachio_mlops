@@ -3,6 +3,8 @@ functions around training/tuning classifier
 """
 
 import logging
+import pickle
+
 from typing import List, Dict, Callable, Tuple
 
 import numpy as np
@@ -116,3 +118,47 @@ def optimise_tune(
 
     logger.info(f"best_result: {optimizer.max}")
     return optimizer.max, trials
+##############################################
+
+def train_model(
+    train_x: pd.DataFrame,
+    train_y: pd.DataFrame,
+    params: Dict
+): 
+    """Train a model on entire train set"""
+    clf = XGBClassifier(objective='binary:logistic', eval_metric='auc', **params)
+
+    model = clf.fit(train_x, train_y)
+    return model
+##############################################
+
+def save_model_to_pickle(
+        model: XGBClassifier,
+        model_pickle_output: str) -> None:
+    """write a trained model to pickle file
+
+    Args:
+        model (XGBClassifier): model to be saved
+        model_pickle_output (str): output pickle file location
+    """
+    with open(model_pickle_output, 'wb') as outfile:
+        pickle.dump(model, outfile, protocol=pickle.HIGHEST_PROTOCOL)
+    logger.info(f"wrote model to {model_pickle_output}")
+##############################################
+
+def read_model_from_pickle(
+        model_pickle_input: str) -> XGBClassifier:
+    """_summary_
+
+    Args:
+        model_pickle_input (str): _description_
+
+    Returns:
+        XGBClassifier: _description_
+    """
+    
+    with open(model_pickle_input, 'wb') as infile:
+        model = pickle.load(infile)
+    logger.info(f"loaded model from {model_pickle_input}")
+    return model
+##############################################
