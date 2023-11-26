@@ -215,7 +215,7 @@ def psi_result_logging(
     psi_metrics: Output[Metrics],
     md_note: str = '',
     metric_prefix: str = 'psi_value'
-    ) -> dsl.ContainerSpec:
+    ):
     """psi_result_logging
     Generate markdown output and log metrics from json file containing psi_results
 

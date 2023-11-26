@@ -4,7 +4,83 @@
 # Inputs:
 #    test_split_data_fraction: float [Default: 0.2]
 #    train_test_split_seed: int [Default: 37.0]
+#    tuning_cv_seed: int [Default: 73.0]
+#    tuning_opt_n_iter: int [Default: 200.0]
+# Outputs:
+#    psi-result-logging-psi_metrics: system.Metrics
 components:
+  comp-hyperparameter-tuning:
+    executorLabel: exec-hyperparameter-tuning
+    inputDefinitions:
+      artifacts:
+        featurelist_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: path to list of features (json)
+        preprocessed_train_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: path to preprocessed training dataset (parquet)
+      parameters:
+        cv_n_folds:
+          defaultValue: 5.0
+          description: number of folds for cross validation. Defaults to 5.
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        cv_seed:
+          defaultValue: 43.0
+          description: seed used for splitting fold definition in cross validation.
+            Defaults to 43.
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        opt_n_init:
+          defaultValue: 10.0
+          description: number of initial (random) trials, prior to optimised searching.
+            Defaults to 10.
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        opt_n_iter:
+          defaultValue: 200.0
+          description: number of search trials to run. Defaults to 200.
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        opt_random_seed:
+          defaultValue: 73.0
+          description: random seed to be used during search process. Defaults to 73.
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        optimal_parameters_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        tuning_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-infer-monitoring:
+    executorLabel: exec-infer-monitoring
+    inputDefinitions:
+      artifacts:
+        inference_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: Dataset to be used for model inference
+        psi_artifact:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: PSI object containing statistics computed at training time
+    outputDefinitions:
+      artifacts:
+        psi_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
   comp-load-data:
     executorLabel: exec-load-data
     inputDefinitions:
@@ -47,6 +123,10 @@ components:
           description: path to raw data to be preprocessed
     outputDefinitions:
       artifacts:
+        feature_list:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
         output_file:
           artifactType:
             schemaTitle: system.Dataset
@@ -62,9 +142,58 @@ components:
           description: path to raw data to be preprocessed
     outputDefinitions:
       artifacts:
+        feature_list:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
         output_file:
           artifactType:
             schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-psi-result-logging:
+    executorLabel: exec-psi-result-logging
+    inputDefinitions:
+      artifacts:
+        psi_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: Json output produced when running psi evaluation
+      parameters:
+        md_note:
+          defaultValue: ''
+          description: optional note/text to include in markdown
+          isOptional: true
+          parameterType: STRING
+        metric_prefix:
+          defaultValue: psi_value
+          description: _description_. Defaults to 'psi_value'.
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        psi_markdown:
+          artifactType:
+            schemaTitle: system.Markdown
+            schemaVersion: 0.0.1
+        psi_metrics:
+          artifactType:
+            schemaTitle: system.Metrics
+            schemaVersion: 0.0.1
+  comp-train-monitoring:
+    executorLabel: exec-train-monitoring
+    inputDefinitions:
+      artifacts:
+        train_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: preprocessed training data
+    outputDefinitions:
+      artifacts:
+        psi_artifact:
+          artifactType:
+            schemaTitle: system.Artifact
             schemaVersion: 0.0.1
   comp-validate-data:
     executorLabel: exec-validate-data
@@ -95,6 +224,35 @@ components:
 defaultPipelineRoot: gs://pistachio_pipeline_sbx_bucket/pistachio_pipeline_root/
 deploymentSpec:
   executors:
+    exec-hyperparameter-tuning:
+      container:
+        args:
+        - '{{$.inputs.artifacts[''preprocessed_train_data''].path}}'
+        - '{{$.inputs.artifacts[''featurelist_json''].path}}'
+        - '{{$.outputs.artifacts[''tuning_results_json''].path}}'
+        - '{{$.outputs.artifacts[''optimal_parameters_json''].path}}'
+        - --cv_seed
+        - '{{$.inputs.parameters[''cv_seed'']}}'
+        - --cv_n_folds
+        - '{{$.inputs.parameters[''cv_n_folds'']}}'
+        - --opt_n_init
+        - '{{$.inputs.parameters[''opt_n_init'']}}'
+        - --opt_n_iter
+        - '{{$.inputs.parameters[''opt_n_iter'']}}'
+        - --opt_random_seed
+        - '{{$.inputs.parameters[''opt_random_seed'']}}'
+        command:
+        - ./model_tuning.py
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-infer-monitoring:
+      container:
+        args:
+        - '{{$.inputs.artifacts[''inference_data''].path}}'
+        - '{{$.inputs.artifacts[''psi_artifact''].path}}'
+        - '{{$.outputs.artifacts[''psi_results_json''].path}}'
+        command:
+        - ./infer_monitor.py
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-load-data:
       container:
         args:
@@ -115,6 +273,7 @@ deploymentSpec:
         args:
         - '{{$.inputs.artifacts[''input_file''].path}}'
         - '{{$.outputs.artifacts[''output_file''].path}}'
+        - '{{$.outputs.artifacts[''feature_list''].path}}'
         command:
         - ./preprocess_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
@@ -123,8 +282,79 @@ deploymentSpec:
         args:
         - '{{$.inputs.artifacts[''input_file''].path}}'
         - '{{$.outputs.artifacts[''output_file''].path}}'
+        - '{{$.outputs.artifacts[''feature_list''].path}}'
         command:
         - ./preprocess_data.py
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-psi-result-logging:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - psi_result_logging
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef psi_result_logging(\n    psi_results_json: Input[Artifact],\n\
+          \    psi_markdown: Output[Markdown],\n    psi_metrics: Output[Metrics],\n\
+          \    md_note: str = '',\n    metric_prefix: str = 'psi_value'\n    ):\n\
+          \    \"\"\"psi_result_logging\n    Generate markdown output and log metrics\
+          \ from json file containing psi_results\n\n    Args:\n        psi_results_json\
+          \ (Input[Artifact]): Json output produced when running psi evaluation\n\
+          \        psi_markdown (Output[Markdown]): output markdown content\n    \
+          \    psi_metrics (Output[Metrics]): output metric artifact - psi details\
+          \ will be logged to this\n        md_note (str): optional note/text to include\
+          \ in markdown\n        metric_prefix (str, optional): _description_. Defaults\
+          \ to 'psi_value'.\n\n    Returns:\n        dsl.ContainerSpec: component\
+          \ definition\n    \"\"\"\n\n\n    import json\n    import os\n    import\
+          \ logging\n    import sys\n    logger = logging.getLogger('pistachio.psi_result_logging')\n\
+          \    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)\n\n\n \
+          \   # load the json content\n    with open(psi_results_json.path,'r') as\
+          \ infile:\n        psi_details = json.load(infile)\n\n    # setup a string\
+          \ for markdown content\n    # include a table header\n    markdown_content\
+          \ = f\"\"\"\n    # PSI results\n\n    Population Stability Index evaluation\n\
+          \n    {md_note}\n\n    | Column | Datatype | Missing Values | PSI |\"\"\"\
+          \n\n    # log psi metrics\n    for column_name in psi_details.keys():\n\
+          \        the_dtype = psi_details['column_name'].get('datatype','unknown')\n\
+          \        n_missing = psi_details['column_name'].get('eval_missing',' ')\n\
+          \        psi_value = psi_details['column_name'].get('PSI','')\n        table_content\
+          \ = f'|{column_name} | {the_dtype} | {n_missing} | {psi_value} |\\n'\n\n\
+          \        # add to table\n        markdown_content += table_content\n\n \
+          \       metric_name = f'{metric_prefix}_{column_name}'\n        try:\n \
+          \           psi_metrics.log_metric(metric_name, float(psi_value))\n    \
+          \        logger.info(f'logged {metric_name} to metrics')\n        except\
+          \ Exception as e:\n            logger.warning(f'could not log {metric_name}\
+          \ with value \"{psi_value}\" ')\n\n    # write markdown content\n    output_dir\
+          \ = os.path.dirname(psi_markdown.path)\n    if not os.path.exists(output_dir):\n\
+          \        os.makedirs(output_dir)\n    with open(psi_markdown.path,'w') as\
+          \ outfile:\n        outfile.write(markdown_content)\n        logger.info(f'markdown\
+          \ written to {psi_markdown.path}')\n    logger.info('done psi result logging')\n\
+          \n"
+        image: python:3.7
+    exec-train-monitoring:
+      container:
+        args:
+        - '{{$.inputs.artifacts[''train_data''].path}}'
+        - '{{$.outputs.artifacts[''psi_artifact''].path}}'
+        command:
+        - ./train_monitoring.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-validate-data:
       container:
@@ -147,7 +377,57 @@ pipelineInfo:
   name: pistachio-training-pipeline
 root:
   dag:
+    outputs:
+      artifacts:
+        psi-result-logging-psi_metrics:
+          artifactSelectors:
+          - outputArtifactKey: psi_metrics
+            producerSubtask: psi-result-logging
     tasks:
+      hyperparameter-tuning:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-hyperparameter-tuning
+        dependentTasks:
+        - preprocess-data
+        inputs:
+          artifacts:
+            featurelist_json:
+              taskOutputArtifact:
+                outputArtifactKey: feature_list
+                producerTask: preprocess-data
+            preprocessed_train_data:
+              taskOutputArtifact:
+                outputArtifactKey: output_file
+                producerTask: preprocess-data
+          parameters:
+            cv_seed:
+              componentInputParameter: tuning_cv_seed
+            opt_n_iter:
+              componentInputParameter: tuning_opt_n_iter
+        taskInfo:
+          name: hyperparameter-tuning
+      infer-monitoring:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-infer-monitoring
+        dependentTasks:
+        - preprocess-data-2
+        - train-monitoring
+        inputs:
+          artifacts:
+            inference_data:
+              taskOutputArtifact:
+                outputArtifactKey: output_file
+                producerTask: preprocess-data-2
+            psi_artifact:
+              taskOutputArtifact:
+                outputArtifactKey: psi_artifact
+                producerTask: train-monitoring
+        taskInfo:
+          name: test data PSI monitoring
       load-data:
         cachingOptions:
           enableCache: true
@@ -199,6 +479,40 @@ root:
                 producerTask: load-data
         taskInfo:
           name: preprocess test data
+      psi-result-logging:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-psi-result-logging
+        dependentTasks:
+        - infer-monitoring
+        inputs:
+          artifacts:
+            psi_results_json:
+              taskOutputArtifact:
+                outputArtifactKey: psi_results_json
+                producerTask: infer-monitoring
+          parameters:
+            md_note:
+              runtimeValue:
+                constant: logging PSI metrics at training time on test dataset
+        taskInfo:
+          name: psi-result-logging
+      train-monitoring:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train-monitoring
+        dependentTasks:
+        - preprocess-data
+        inputs:
+          artifacts:
+            train_data:
+              taskOutputArtifact:
+                outputArtifactKey: output_file
+                producerTask: preprocess-data
+        taskInfo:
+          name: compute monitoring statistics
       validate-data:
         cachingOptions:
           enableCache: true
@@ -249,5 +563,19 @@ root:
         description: _description_
         isOptional: true
         parameterType: NUMBER_INTEGER
+      tuning_cv_seed:
+        defaultValue: 73.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      tuning_opt_n_iter:
+        defaultValue: 200.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+  outputDefinitions:
+    artifacts:
+      psi-result-logging-psi_metrics:
+        artifactType:
+          schemaTitle: system.Metrics
+          schemaVersion: 0.0.1
 schemaVersion: 2.1.0
 sdkVersion: kfp-2.3.0

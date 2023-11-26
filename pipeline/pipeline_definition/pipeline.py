@@ -66,7 +66,7 @@ def pistachio_training_pipeline(
         .set_display_name('preprocess train data')
     
     train_monitoring_task = train_monitoring(
-        preprocess_train_data_task.outputs["output_file"]
+        train_data=preprocess_train_data_task.outputs["output_file"]
     ).set_display_name('compute monitoring statistics')
 
     preprocess_test_data_task = preprocess_data(
