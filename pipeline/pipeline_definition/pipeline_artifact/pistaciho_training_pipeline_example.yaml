@@ -62,7 +62,7 @@ components:
         schema_file_path:
           description: pandera schema file to use for validation
           parameterType: STRING
-defaultPipelineRoot: gs://pistachio_pipeline_sbx_bucket/pistachio_pipeline_root/
+defaultPipelineRoot: gs://bucket/path
 deploymentSpec:
   executors:
     exec-load-data:
@@ -79,7 +79,7 @@ deploymentSpec:
         - '{{$.inputs.parameters[''label_column'']}}'
         command:
         - load_data.py
-        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+        image: THE_ARTIFACT_REGISTRY/pistachio_base:0.01
     exec-validate-data:
       container:
         args:
@@ -87,7 +87,7 @@ deploymentSpec:
         - '{{$.inputs.parameters[''schema_file_path'']}}'
         command:
         - validate_data.py
-        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+        image: THE_ARTIFACT_REGISTRY/pistachio_base:0.01
     exec-validate-data-2:
       container:
         args:
@@ -95,7 +95,7 @@ deploymentSpec:
         - '{{$.inputs.parameters[''schema_file_path'']}}'
         command:
         - validate_data.py
-        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+        image: THE_ARTIFACT_REGISTRY/pistachio_base:0.01
 pipelineInfo:
   description: pipeline for training pistachio classifier
   name: pistachio-training-pipeline

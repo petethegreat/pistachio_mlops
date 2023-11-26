@@ -1,0 +1,5 @@
+project_id: pistachio-mlops-sbx
+artifact_registry: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base
+gcs_bucket: pistachio_pipeline_sbx_bucket
+training_pipeline_name: pistachio_training_pipeline
+base_image_name: pistachio_base:0.0.1

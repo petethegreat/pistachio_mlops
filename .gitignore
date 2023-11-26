@@ -3,3 +3,7 @@
 **/__pycache__
 **/.ipynb_checkpoints
 **/venv
+./config/config.yaml
+./pipeline/pipeline_definition/pipeline_artifact/*
+!./pipeline/pipeline_definition/pipeline_artifact/pistachio_training_pipeline_example.yaml
+./pipeline/images/tag_and_push.sh

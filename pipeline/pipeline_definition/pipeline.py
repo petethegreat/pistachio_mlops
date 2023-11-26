@@ -6,20 +6,25 @@ define pipeline from components.
 
 from kfp import dsl
 from kfp import compiler
-from components import load_data
-# , validate_data
+from components import load_data, validate_data
+
 import yaml
 
-CONFIG_FILE_PATH = '../config/default_config.yaml'
+CONFIG_FILE_PATH = '../config/config.yaml'
 
 with open(CONFIG_FILE_PATH,'r') as config_file:
     CONFIG = yaml.safe_load(config_file)
+
+bucket_name = CONFIG.get('gcs_bucket','the_gcs_bucket')
+
+pipeline_root = f'gs://{bucket_name}/pistachio_pipeline_root/'
+pipeline_name = CONFIG.get('training_pipeline_name','the_pipeline_name')
 
 
 @dsl.pipeline(
     name='pistachio_training_pipeline',
     description='pipeline for training pistachio classifier',
-    pipeline_root='gs://bucket/path')
+    pipeline_root=pipeline_root)
 def pistachio_training_pipeline(
     train_test_split_seed: int,
     test_split_data_fraction: float
@@ -36,64 +41,18 @@ def pistachio_training_pipeline(
     schema_file_path = 'schema file path in gcs'
 
     load_data_task = load_data(
-        input_file=arff_file_location,
+        input_file_path=arff_file_location,
         split_seed=train_test_split_seed,
         test_fraction=test_split_data_fraction,
         label_column=stratify_column_name)
     
-    # validate_train_data_task = validate_data(
-    #     input_file_path=load_data_task.Output['output_train_path'],
-    #     schema_file_path=schema_file_path
-    #     )
-    # validate_test_data_task = validate_data(
-    #     input_file_path=load_data_task.Output['output_test_path'],
-    #     schema_file_path=schema_file_path
-    #     )
+    validate_train_data_task = validate_data(
+        input_file=load_data_task.outputs['output_train'],
+        schema_file_path=schema_file_path
+        )
+    validate_test_data_task = validate_data(
+        input_file=load_data_task.outputs['output_test'],
+        schema_file_path=schema_file_path
+        )
     
 compiler.Compiler().compile(pistachio_training_pipeline, package_path='./pipeline_artifact/pistaciho_training_pipeline.yaml')
-
-# kfp v2 dsl
-
-# import yaml
-# import jinja2
-
-# from typing import Dict
-# import os
-
-# config_file_path = '../config/default_config.yaml'
-# with open(config_file_path,'r') as config_file:
-#     config = yaml.safe_load(config_file)
-
-# def load_components(
-#     component_names: list[str],
-#     component_dir: str) -> Dict[str,str]:
-#     """_summary_
-
-#     Args:
-#         components (list[str]): _description_
-#         component_dir (str): _description_
-
-#     Returns:
-#         Dict[str,str]: _description_
-#     """
-
-#     components = {}
-#     for comp in component_names:
-#         template_file_path = os.path.join(component_dir, f'{comp}.yaml' )
-#         comp_template = jinja2.Template(open(template_file_path,'r').read())
-#         component = comp_template.render(
-#             project_id = config.get('project_id'),
-#             ARTIFACT_REGISTRY_URI = config.get('artifact_registry'),
-#             BASE_IMAGE_SHA = config.get('base_image_name'),
-#             gcs_bucket = config.get('gcs_bucket'))
-#         components[comp] = component
-#     return components
-
-# component_dir = '../components'
-# components = load_components(['load_data','validate_data'], component_dir)
-
-# print(components['load_data'])
-
-
-
-
