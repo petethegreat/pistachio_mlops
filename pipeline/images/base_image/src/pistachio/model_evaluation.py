@@ -4,9 +4,9 @@ functions around evaluating a trained classifier
 
 import logging
 import pickle
+import sys
 
 from typing import List, Dict, Callable, Tuple
-
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score, accuracy_score, roc_curve
 
 import matplotlib.pyplot as plt
@@ -40,6 +40,9 @@ def get_roc_results(predicted_probs: List[float], actual_classes: List[float]) -
         Tuple[List,List,List]: fpr, tpr, thresholds
     """
     fpr, tpr, thresholds = roc_curve(actual_classes, predicted_probs)
+    if thresholds[0] == float('inf'):
+        thresholds[0] = sys.float_info.max
+
     return fpr, tpr, thresholds
 
 #################################################################

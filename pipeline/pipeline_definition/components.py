@@ -428,10 +428,10 @@ def evaluation_reporting(
     
     # evaluation_metrics.load_roc_readings('test', test_roc_curve_definition)
 
-    # test_evaluation_metrics.log_roc_curve(
-    #     test_results['roc_curve']['fpr'],
-    #     test_results['roc_curve']['tpr'],
-    #     test_results['roc_curve']['thresholds'])
+    test_evaluation_metrics.log_roc_curve(
+        test_results['roc_curve']['fpr'],
+        test_results['roc_curve']['tpr'],
+        test_results['roc_curve']['thresholds'])
     
     # train_evaluation_metrics.log_roc_curve(
     #     train_results['roc_curve']['fpr'],
@@ -441,8 +441,8 @@ def evaluation_reporting(
     # dummy roc data
     fpr = [ 0.0, 0.0, 0.0, 1.0]
     tpr = [0.0, 0.5, 1.0, 1.0]
-    thresholds = [float('inf'), 0.99, 0.8, 0.01]
-    test_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)
+    thresholds = [sys.float_info.max, 0.99, 0.8, 0.01] # infinity is an issue
+    # test_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)
     train_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)
 
     

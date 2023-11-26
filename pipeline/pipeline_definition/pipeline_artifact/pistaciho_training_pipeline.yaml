@@ -475,19 +475,20 @@ deploymentSpec:
           \ = {}\n    # get roc curve definition\n\n    # test_roc_curve_definition\
           \ = [\n    #     test_results['roc_curve']['thresholds'],\n    #     test_results['roc_curve']['tpr'],\n\
           \    #     test_results['roc_curve']['fpr']]\n\n    # evaluation_metrics.load_roc_readings('test',\
-          \ test_roc_curve_definition)\n\n    # test_evaluation_metrics.log_roc_curve(\n\
-          \    #     test_results['roc_curve']['fpr'],\n    #     test_results['roc_curve']['tpr'],\n\
-          \    #     test_results['roc_curve']['thresholds'])\n\n    # train_evaluation_metrics.log_roc_curve(\n\
+          \ test_roc_curve_definition)\n\n    test_evaluation_metrics.log_roc_curve(\n\
+          \        test_results['roc_curve']['fpr'],\n        test_results['roc_curve']['tpr'],\n\
+          \        test_results['roc_curve']['thresholds'])\n\n    # train_evaluation_metrics.log_roc_curve(\n\
           \    #     train_results['roc_curve']['fpr'],\n    #     train_results['roc_curve']['tpr'],\n\
           \    #     train_results['roc_curve']['thresholds'])\n\n    # dummy roc\
           \ data\n    fpr = [ 0.0, 0.0, 0.0, 1.0]\n    tpr = [0.0, 0.5, 1.0, 1.0]\n\
-          \    thresholds = [float('inf'), 0.99, 0.8, 0.01]\n    test_evaluation_metrics.log_roc_curve(fpr,\
-          \ tpr, thresholds)\n\n\n\n    # write markdown content\n    output_dir =\
-          \ os.path.dirname(evaluation_markdown.path)\n    if not os.path.exists(output_dir):\n\
-          \        os.makedirs(output_dir)\n    with open(evaluation_markdown.path,'w')\
-          \ as outfile:\n        outfile.write(markdown_content)\n        logger.info(f'markdown\
-          \ written to {evaluation_markdown.path}')\n    logger.info('done model evaluation\
-          \ reporting')\n\n"
+          \    thresholds = [sys.float_info.max, 0.99, 0.8, 0.01] # infinity is an\
+          \ issue\n    # test_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)\n\
+          \    train_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)\n\n\n\n\
+          \    # write markdown content\n    output_dir = os.path.dirname(evaluation_markdown.path)\n\
+          \    if not os.path.exists(output_dir):\n        os.makedirs(output_dir)\n\
+          \    with open(evaluation_markdown.path,'w') as outfile:\n        outfile.write(markdown_content)\n\
+          \        logger.info(f'markdown written to {evaluation_markdown.path}')\n\
+          \    logger.info('done model evaluation reporting')\n\n"
         image: python:3.11
     exec-hyperparameter-tuning:
       container:
