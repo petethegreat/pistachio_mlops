@@ -8,9 +8,24 @@ from pistachio.data_handling import load_arff_file, split_data
 import logging
 logger = logging
 
-def load_and_split_data():
-    """load and split data"""
+def load_and_split_data(
+    input_file_path: str,
+    output_train_file_path: str,
+    output_test_file_path: str,
+    split_seed: int,
+    test_fraction: float,
+    label_column: str) -> None:
+    """load input arff file and create stratified train/test splits (parquet)
 
+    Args:
+        input_file_path (str): location of theinput file path
+        output_train_file_path (str): path of output train file
+        output_test_file_path (str): path of output test file
+        split_seed (int): seed used for splitting data
+        test_fraction (float): what fraction of data should be allocated to test
+        label_column (str): label column in the input dataframe - used to stratify the split
+    """
+   
     df = load_arff_file()
     split_data()
     logger.info('Done')
@@ -22,14 +37,24 @@ def main():
     )
     parser.add_argument('input_file', type='str')
     parser.add_argument('output_train_file', type='str')
+    parser.add_argument('output_test_file', type='str')
     parser.add_argument('--split_seed', type='int', default=37, help='random seed for train/test split')
     parser.add_argument('--test_fraction', type='float', default=0.2, help='fraction of data to use for test set')
     parser.add_argument('--label_column', type='str', default='Class', help='label column used to stratify data')
 
-    arff_filepath = './data/Pistachio_Dataset/Pistachio_16_Features_Dataset/Pistachio_16_Features_Dataset.arff'
-    parquet_path = './data/pistachio_16.snappy.pqt'
+    # arff_filepath = './data/Pistachio_Dataset/Pistachio_16_Features_Dataset/Pistachio_16_Features_Dataset.arff'
+    # parquet_path = './data/pistachio_16.snappy.pqt'
+    args = parser.parse_args()
 
-    load_and_split_data()
+    load_and_split_data(
+        args.input_file,
+        args.output_train_file,
+        args.output_test_file,
+        split_seed=args.split_seed,
+        test_fraction=args.test_fraction,
+        label_column=args.label_column
+        )
+    
 
 
 if __name__ == "__main__":
