@@ -88,10 +88,12 @@ docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./tra
 
 echo "running model evaluation on train data"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./evaluate_model.py" $IMAGE \
-  "$PREPROC_TRAIN_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TRAIN_METRICS_PATH" "$EVALUATE_TRAIN_FI_PLOT_PATH" 
+  "$PREPROC_TRAIN_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TRAIN_METRICS_PATH" "$EVALUATE_TRAIN_FI_PLOT_PATH" "--metric_prefix" "train_metrics_"
 
 echo "running model evaluation on test data"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./evaluate_model.py" $IMAGE \
-  "$PREPROC_TEST_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TEST_METRICS_PATH" "$EVALUATE_TEST_FI_PLOT_PATH" 
+  "$PREPROC_TEST_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TEST_METRICS_PATH" "$EVALUATE_TEST_FI_PLOT_PATH" "--metric_prefix" "test_metrics_"
 
 
+echo "running model evaluation on test data"
+docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint /bin/bash $IMAGE 

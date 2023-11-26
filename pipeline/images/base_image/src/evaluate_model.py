@@ -7,7 +7,7 @@ take a dataset and model artifact, generate metrics and plots
 
 
 from argparse import ArgumentParser
-from pistachio.data_handling import load_parquet_file, validate_data_with_schema
+from pistachio.data_handling import load_parquet_file, read_from_json, write_to_json
 from pistachio.model_evaluation import get_evaluation_metrics, plot_feature_importances
 from pistachio.utils import ensure_directory_exists
 from pistachio.model_training import read_model_from_pickle
@@ -47,7 +47,7 @@ def evaluate_model(
 
     dataset = load_parquet_file(dataset_path)
     model = read_model_from_pickle(model_pickle_path)
-    features = read_from_json(features_path)
+    features = read_from_json(featurelist_json)
 
     for path in [metric_results_json, feature_importance_plot_png]:
         ensure_directory_exists(path)
@@ -63,7 +63,12 @@ def evaluate_model(
     predicted_class_labels = [class_lookup[x] for x in predicted_binary_labels]
 
     # compute classification metrics
-    metrics = get_evaluation_metrics()
+    metrics = get_evaluation_metrics(
+        predicted_probabilities,
+        predicted_binary_labels,
+        dataset_binary_labels,
+        prefix=metric_prefix)
+
     write_to_json(metrics, metric_results_json)
 
     # feature importance plot
@@ -82,7 +87,7 @@ def main():
     parser.add_argument('featurelist_json', type=str)
     parser.add_argument('metric_results_json', type=str)
     parser.add_argument('feature_importance_plot_png', type=str)
-    parser.add_argument('--metric_prefix', type=str, default='dataset metric')
+    parser.add_argument('--metric_prefix', type=str, default='dataset_metric_')
     parser.add_argument('--dataset_desc', type=str, default='dataset')
 
     args = parser.parse_args()

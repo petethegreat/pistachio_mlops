@@ -241,6 +241,48 @@ def train_final_model(
             featurelist_json.path]
         )
 #############################################################################
+
+
+@dsl.container_component
+def evaluate_trained_model(
+    dataset: Input[Dataset],
+    model_pickle: Input[Model],
+    featurelist_json: Input[Artifact],
+    metric_results_json: Output[Artifact],
+    feature_importance_plot_png: Output[Artifact],
+    metric_prefix: str='metric_',
+    dataset_desc: str='dataset'
+    ) -> dsl.ContainerSpec:
+    """evaluate trained model on specified dataset
+
+    Args:
+        dataset (Input[Dataset]): dataset to be used for model inference
+        model_pickle (Input[Model]): pickle file containing pistachio XGBClassifier
+        featurelist_json (Input[Artifact]): list of features
+        metric_results_json (Output[Artifact]): location where evaluation metrics will be written (as json)
+        feature_importance_plot_png (Output[Artifact]): path where feature importance plot will be written as png
+        metric_prefix (str, optional): string added as a prefix to metric keys. Defaults to 'metric_'.
+        dataset_desc (str, optional): dataset description, used in plot titles. Defaults to 'dataset'.
+
+    Returns:
+        dsl.ContainerSpec: _description_
+    """
+ 
+    return dsl.ContainerSpec(
+        image=base_image_location,
+        command=['./evaluate_model.py'],
+        args=[
+            dataset.path,
+            model_pickle.path,
+            featurelist_json.path,
+            metric_results_json.path,
+            feature_importance_plot_png.path,
+            "--metric_prefix",
+            metric_prefix,
+            "--dataset_desc",
+            dataset_desc]
+        )
+#############################################################################
 @dsl.component(base_image='python:3.11')
 def psi_result_logging(
     psi_results_json: Input[Artifact],

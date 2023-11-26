@@ -159,6 +159,7 @@ def read_model_from_pickle(
     
     with open(model_pickle_input, 'rb') as infile:
         model = pickle.load(infile)
+        infile.close()
     logger.info(f"loaded model from {model_pickle_input}")
     return model
 ##############################################

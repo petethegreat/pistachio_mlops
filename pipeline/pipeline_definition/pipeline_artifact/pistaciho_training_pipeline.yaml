@@ -9,6 +9,86 @@
 # Outputs:
 #    psi-result-logging-psi_metrics: system.Metrics
 components:
+  comp-evaluate-trained-model:
+    executorLabel: exec-evaluate-trained-model
+    inputDefinitions:
+      artifacts:
+        dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: dataset to be used for model inference
+        featurelist_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: list of features
+        model_pickle:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+          description: pickle file containing pistachio XGBClassifier
+      parameters:
+        dataset_desc:
+          defaultValue: dataset
+          description: dataset description, used in plot titles. Defaults to 'dataset'.
+          isOptional: true
+          parameterType: STRING
+        metric_prefix:
+          defaultValue: metric_
+          description: string added as a prefix to metric keys. Defaults to 'metric_'.
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        feature_importance_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        metric_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-evaluate-trained-model-2:
+    executorLabel: exec-evaluate-trained-model-2
+    inputDefinitions:
+      artifacts:
+        dataset:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: dataset to be used for model inference
+        featurelist_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: list of features
+        model_pickle:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+          description: pickle file containing pistachio XGBClassifier
+      parameters:
+        dataset_desc:
+          defaultValue: dataset
+          description: dataset description, used in plot titles. Defaults to 'dataset'.
+          isOptional: true
+          parameterType: STRING
+        metric_prefix:
+          defaultValue: metric_
+          description: string added as a prefix to metric keys. Defaults to 'metric_'.
+          isOptional: true
+          parameterType: STRING
+    outputDefinitions:
+      artifacts:
+        feature_importance_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        metric_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
   comp-hyperparameter-tuning:
     executorLabel: exec-hyperparameter-tuning
     inputDefinitions:
@@ -249,6 +329,36 @@ components:
 defaultPipelineRoot: gs://pistachio_pipeline_sbx_bucket/pistachio_pipeline_root/
 deploymentSpec:
   executors:
+    exec-evaluate-trained-model:
+      container:
+        args:
+        - '{{$.inputs.artifacts[''dataset''].path}}'
+        - '{{$.inputs.artifacts[''model_pickle''].path}}'
+        - '{{$.inputs.artifacts[''featurelist_json''].path}}'
+        - '{{$.outputs.artifacts[''metric_results_json''].path}}'
+        - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
+        - --metric_prefix
+        - '{{$.inputs.parameters[''metric_prefix'']}}'
+        - --dataset_desc
+        - '{{$.inputs.parameters[''dataset_desc'']}}'
+        command:
+        - ./evaluate_model.py
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-evaluate-trained-model-2:
+      container:
+        args:
+        - '{{$.inputs.artifacts[''dataset''].path}}'
+        - '{{$.inputs.artifacts[''model_pickle''].path}}'
+        - '{{$.inputs.artifacts[''featurelist_json''].path}}'
+        - '{{$.outputs.artifacts[''metric_results_json''].path}}'
+        - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
+        - --metric_prefix
+        - '{{$.inputs.parameters[''metric_prefix'']}}'
+        - --dataset_desc
+        - '{{$.inputs.parameters[''dataset_desc'']}}'
+        command:
+        - ./evaluate_model.py
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-hyperparameter-tuning:
       container:
         args:
@@ -372,7 +482,7 @@ deploymentSpec:
           \ outfile:\n        outfile.write(markdown_content)\n        logger.info(f'markdown\
           \ written to {psi_markdown.path}')\n    logger.info('done psi result logging')\n\
           \n"
-        image: python:3.7
+        image: python:3.11
     exec-train-final-model:
       container:
         args:
@@ -419,6 +529,68 @@ root:
           - outputArtifactKey: psi_metrics
             producerSubtask: psi-result-logging
     tasks:
+      evaluate-trained-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate-trained-model
+        dependentTasks:
+        - preprocess-data
+        - train-final-model
+        inputs:
+          artifacts:
+            dataset:
+              taskOutputArtifact:
+                outputArtifactKey: output_file
+                producerTask: preprocess-data
+            featurelist_json:
+              taskOutputArtifact:
+                outputArtifactKey: feature_list
+                producerTask: preprocess-data
+            model_pickle:
+              taskOutputArtifact:
+                outputArtifactKey: model_pickle
+                producerTask: train-final-model
+          parameters:
+            dataset_desc:
+              runtimeValue:
+                constant: Training Data
+            metric_prefix:
+              runtimeValue:
+                constant: train_metrics
+        taskInfo:
+          name: evaluate-trained-model
+      evaluate-trained-model-2:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluate-trained-model-2
+        dependentTasks:
+        - preprocess-data-2
+        - train-final-model
+        inputs:
+          artifacts:
+            dataset:
+              taskOutputArtifact:
+                outputArtifactKey: output_file
+                producerTask: preprocess-data-2
+            featurelist_json:
+              taskOutputArtifact:
+                outputArtifactKey: feature_list
+                producerTask: preprocess-data-2
+            model_pickle:
+              taskOutputArtifact:
+                outputArtifactKey: model_pickle
+                producerTask: train-final-model
+          parameters:
+            dataset_desc:
+              runtimeValue:
+                constant: Test Data
+            metric_prefix:
+              runtimeValue:
+                constant: test_metrics
+        taskInfo:
+          name: evaluate-trained-model-2
       hyperparameter-tuning:
         cachingOptions:
           enableCache: true

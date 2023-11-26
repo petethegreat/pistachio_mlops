@@ -10,6 +10,8 @@ from kfp.registry import RegistryClient
 
 from components import load_data, validate_data, preprocess_data, psi_result_logging
 from components import hyperparameter_tuning, train_monitoring, infer_monitoring, train_final_model
+from components import evaluate_trained_model
+
 
 import yaml
 
@@ -97,7 +99,23 @@ def pistachio_training_pipeline(
         featurelist_json=preprocess_train_data_task.outputs["feature_list"]
     )
 
+
     # evaluate on train data task 
+    evaluate_on_train_task = evaluate_trained_model(
+        dataset=preprocess_train_data_task.outputs["output_file"],
+        model_pickle=model_train_task.outputs['model_pickle'],
+        featurelist_json=preprocess_train_data_task.outputs["feature_list"],
+        metric_prefix="train_metrics",
+        dataset_desc='Training Data'
+    )
+
+    evaluate_on_test_task = evaluate_trained_model(
+        dataset=preprocess_test_data_task.outputs["output_file"],
+        model_pickle=model_train_task.outputs['model_pickle'],
+        featurelist_json=preprocess_test_data_task.outputs["feature_list"],
+        metric_prefix="test_metrics",
+        dataset_desc='Test Data'
+    )
     # evaluate on test data task 
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
