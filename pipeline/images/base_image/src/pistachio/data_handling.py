@@ -108,15 +108,6 @@ def preprocess(in_raw_df: pd.DataFrame) -> pd.DataFrame:
     out_df['Target'] = out_df.Class.cat.codes
 
     return out_df
-    # summary = in_df.describe(include='all')
-    # # check for entirely missing columns
-    # entirely_missing = [x for x in in_df.columns if summary.loc['count', x] == 0]
-    # if entirely_missing:
-    #     raise ValueError(f'following columns in supplied data are missing: {entirely_missing}')
-    # # check that columns have more than one unique value
-    # single_value_columns = [x for x in in_df.columns if summary.loc['unique', column] == 1]
-    # if entirely_missing:
-    #     raise ValueError(f'following columns in supplied data are missing: {entirely_missing}')
-
+    
 
 
