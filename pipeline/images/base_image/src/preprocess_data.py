@@ -50,6 +50,9 @@ def main():
     args = parser.parse_args()
 
     preprocess_data(args.input_raw_file, args.output_preprocessed_file)
+
+if __name__ == '__main__':
+    main()
         
         
         

@@ -36,6 +36,36 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
+  comp-preprocess-data:
+    executorLabel: exec-preprocess-data
+    inputDefinitions:
+      artifacts:
+        input_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: path to raw data to be preprocessed
+    outputDefinitions:
+      artifacts:
+        output_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-preprocess-data-2:
+    executorLabel: exec-preprocess-data-2
+    inputDefinitions:
+      artifacts:
+        input_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: path to raw data to be preprocessed
+    outputDefinitions:
+      artifacts:
+        output_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
   comp-validate-data:
     executorLabel: exec-validate-data
     inputDefinitions:
@@ -44,7 +74,7 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
-          description: InputPath to data to be validated
+          description: path to input dataset to be validated
       parameters:
         schema_file_path:
           description: pandera schema file to use for validation
@@ -57,7 +87,7 @@ components:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
-          description: InputPath to data to be validated
+          description: path to input dataset to be validated
       parameters:
         schema_file_path:
           description: pandera schema file to use for validation
@@ -79,6 +109,22 @@ deploymentSpec:
         - '{{$.inputs.parameters[''label_column'']}}'
         command:
         - ./load_data.py
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-preprocess-data:
+      container:
+        args:
+        - '{{$.inputs.artifacts[''input_file''].path}}'
+        - '{{$.outputs.artifacts[''output_file''].path}}'
+        command:
+        - ./preprocess_data.py
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-preprocess-data-2:
+      container:
+        args:
+        - '{{$.inputs.artifacts[''input_file''].path}}'
+        - '{{$.outputs.artifacts[''output_file''].path}}'
+        command:
+        - ./preprocess_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-validate-data:
       container:
@@ -121,6 +167,38 @@ root:
               componentInputParameter: test_split_data_fraction
         taskInfo:
           name: load-data
+      preprocess-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-preprocess-data
+        dependentTasks:
+        - load-data
+        - validate-data
+        inputs:
+          artifacts:
+            input_file:
+              taskOutputArtifact:
+                outputArtifactKey: output_train
+                producerTask: load-data
+        taskInfo:
+          name: preprocess train data
+      preprocess-data-2:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-preprocess-data-2
+        dependentTasks:
+        - load-data
+        - validate-data-2
+        inputs:
+          artifacts:
+            input_file:
+              taskOutputArtifact:
+                outputArtifactKey: output_test
+                producerTask: load-data
+        taskInfo:
+          name: preprocess test data
       validate-data:
         cachingOptions:
           enableCache: true
@@ -139,7 +217,7 @@ root:
               runtimeValue:
                 constant: /gcs/pistachio_pipeline_sbx_bucket/pipeline_resources/pistachio_schema.json
         taskInfo:
-          name: validate-data
+          name: validate training data
       validate-data-2:
         cachingOptions:
           enableCache: true
@@ -158,7 +236,7 @@ root:
               runtimeValue:
                 constant: /gcs/pistachio_pipeline_sbx_bucket/pipeline_resources/pistachio_schema.json
         taskInfo:
-          name: validate-data-2
+          name: validate test data
   inputDefinitions:
     parameters:
       test_split_data_fraction:

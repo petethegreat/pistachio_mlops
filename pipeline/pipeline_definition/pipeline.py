@@ -8,7 +8,7 @@ from kfp import dsl
 from kfp import compiler
 from kfp.registry import RegistryClient
 
-from components import load_data, validate_data
+from components import load_data, validate_data, preprocess_data
 
 import yaml
 
@@ -30,8 +30,8 @@ stratify_column_name = 'Class'
     description='pipeline for training pistachio classifier',
     pipeline_root=pipeline_root)
 def pistachio_training_pipeline(
-    train_test_split_seed: int,
-    test_split_data_fraction: float
+    train_test_split_seed: int=37,
+    test_split_data_fraction: float=0.2
     ):
     """training pipeline
 
@@ -49,12 +49,26 @@ def pistachio_training_pipeline(
     
     validate_train_data_task = validate_data(
         input_file=load_data_task.outputs['output_train'],
-        schema_file_path=schema_file_path
-        )
+        schema_file_path=schema_file_path)\
+        .set_display_name('validate training data')
+
     validate_test_data_task = validate_data(
         input_file=load_data_task.outputs['output_test'],
-        schema_file_path=schema_file_path
-        )
+        schema_file_path=schema_file_path)\
+        .set_display_name('validate test data')
+
+    preprocess_train_data_task = preprocess_data(
+        input_file=load_data_task.outputs['output_train'])\
+        .after(validate_train_data_task)\
+        .set_display_name('preprocess train data')
+
+
+    preprocess_test_data_task = preprocess_data(
+        input_file=load_data_task.outputs['output_test'])\
+        .after(validate_test_data_task)\
+        .set_display_name('preprocess test data')
+
+    
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
 compiler.Compiler().compile(pistachio_training_pipeline, package_path=pipeline_output_path)

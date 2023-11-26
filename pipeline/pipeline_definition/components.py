@@ -65,16 +65,13 @@ def validate_data(
     ) -> dsl.ContainerSpec:
     """validate_data component
 
-    runs pandera data validation on dataset
-
     Args:
-        input_file (InputPath(Dataset)): InputPath to data to be validated
+        input_file (Input[Dataset]): path to input dataset to be validated
         schema_file_path (str): pandera schema file to use for validation
 
     Returns:
         dsl.ContainerSpec: container component definition
     """
-    
 
     return dsl.ContainerSpec(
         image=base_image_location,
@@ -85,7 +82,30 @@ def validate_data(
         )
 #############################################################################
 
+@dsl.container_component
+def preprocess_data(
+    input_file: Input[Dataset],
+    output_file: Output[Dataset]
+    ) -> dsl.ContainerSpec:
+    """preprocess_data component
 
+    preprocesses data (feature engineering, data transformation)
+
+    Args:
+        input_file (Input(Dataset)): path to raw data to be preprocessed
+        output_file (Output(Dataset)): path where preprocessed data will be written 
+    Returns:
+        dsl.ContainerSpec: container component definition
+    """
+    
+
+    return dsl.ContainerSpec(
+        image=base_image_location,
+        command=['./preprocess_data.py'],
+        args=[
+            input_file.path,
+            output_file.path]
+        )
 
 
 

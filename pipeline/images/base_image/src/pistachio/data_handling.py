@@ -76,6 +76,10 @@ def split_data(
     logger.info(f'x_test shape = {x_test.shape}')
     logger.info(f'y_test shape = {y_test.shape}')
     # write data
+    for the_path in [train_filename, test_filename]:
+        output_dir = os.path.dirname(the_path)
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
     x_train.to_parquet(train_filename)
     x_test.to_parquet(test_filename)
     logger.info(f"wrote train data to {train_filename}")
