@@ -21,7 +21,7 @@ from pistachio.model_training import train_model, save_model_to_pickle
 logger = logging.getLogger('pistachio')
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-def train_model(
+def train_final_model(
     training_data_path: str,
     optimal_parameters_json_path: str,
     output_model_artifact_path: str,
@@ -44,7 +44,7 @@ def train_model(
     train_x = train_data[features]
     train_y = train_data.Target.values
 
-    model = train_model(train_x, train_y, parameters)
+    model = train_model(train_x, train_y, parameters )
 
     # create output directory, if it does not already exist
     output_dir = os.path.dirname(output_model_artifact_path)
@@ -57,7 +57,6 @@ def train_model(
 #########################################################
 
 def main():
-    setup_logging()
 
     parser = ArgumentParser(
         description="load training data and optimal parameters, train an xgboost classifier and save artifacts"
@@ -70,7 +69,7 @@ def main():
 
     args = parser.parse_args()
 
-    train_model(
+    train_final_model(
         args.train_data,
         args.optimal_parameters_json,
         args.model_artifact,

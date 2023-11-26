@@ -26,6 +26,7 @@ FEATURE_LIST_PATH='/test_output/preproc_data_out/features.json'
 OPTIMAL_PARAMETERS_PATH='/test_output/tuning/optimal_parameters.json'
 TUNING_RESULTS_PATH='/test_output/tuning/tuning_details.json'
 
+MODEL_ARTIFACT_PATH='/test_output/model_training/model.pkl'
 
 if [ -d $TEST_DIR ]
 then
@@ -74,5 +75,9 @@ docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./inf
 echo "running model tuning"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./model_tuning.py" $IMAGE \
   "$PREPROC_TRAIN_PATH"  "$FEATURE_LIST_PATH" "$TUNING_RESULTS_PATH" "$OPTIMAL_PARAMETERS_PATH" "--cv_seed" "37"
+
+echo "running model training"
+docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./train_model.py" $IMAGE \
+  "$PREPROC_TRAIN_PATH"  "$OPTIMAL_PARAMETERS_PATH" "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" 
 
 
