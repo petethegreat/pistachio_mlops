@@ -3,7 +3,7 @@ components defined using kfp container_spec
 """
 
 from kfp import dsl
-from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath
+from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact
 
 import yaml 
 
@@ -107,7 +107,25 @@ def preprocess_data(
             output_file.path]
         )
 
+@dsl.component
+def psi_json_to_artifacts(
+    psi_json_path: Input[Artifact],
+    psi_metrics: Output[Metrics],
+    psi_markdown: Output[Markdown]
+    ):
+    """load json file of psi result, write as markdown and log metrics
 
+
+    Args:
+        psi_json_path (Input[Artifact]): json file with psi details
+        psi_metrics (Output[Metrics]): psi values per column as metrics
+        psi_markdown (Output[Markdown]): psi values per column as markdown content.
+    """
+    import json
+    with open(psi_json_path.path) as input:
+        psi_details = json.loads(input)
+
+    
 
 
 
