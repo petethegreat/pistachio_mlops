@@ -13,7 +13,7 @@ def cast_integer_params(params: Dict, integer_params: List[str]):
             if x in params:
                 params[x] = int(params[x])
     return params
-    
+
 # metrics = {
 #     "roc_auc": make_scorer(roc_auc_score),
 #     "precision": make_scorer(precision_score),
@@ -24,11 +24,11 @@ def cast_integer_params(params: Dict, integer_params: List[str]):
 def optimise_tune(
     train_x: pd.DataFrame,
     train_y: pd.DataFrame,
-    pbounds: Dict, 
+    pbounds: Dict,
     fixed_parameters: Dict,
     integer_parameters: List[str],
-    metrics: Dict[str, Callable], 
-    cv_seed: int, 
+    metrics: Dict[str, Callable],
+    cv_seed: int,
     n_folds: int=5,
     opt_n_init: int=10,
     opt_n_iter: int=20,
@@ -56,13 +56,13 @@ def optimise_tune(
     # initialise list to hold (detailed) experiment results
     trials = []
     # discrete parameters need to be handled specially in bayesopt (explicitly cast to int)
-    
+
 
     # function to run a trial - evaluate a given set of searchable parameters
     def run_trial(**probe_params):
         params = {**probe_params, **fixed_parameters}
         params = cast_integer_params(params, integer_parameters)
-        
+
 
         # set up the XGBclassifier
         clf = XGBClassifier(objective='binary:logistic', eval_metric='auc', **params)

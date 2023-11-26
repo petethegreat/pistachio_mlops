@@ -1,5 +1,5 @@
 
-from scipy.io import arff 
+from scipy.io import arff
 import pandas as pd
 import os
 import logging
@@ -52,7 +52,7 @@ def load_parquet_file(input_file_path: str) -> pd.DataFrame:
 ##################
 
 def split_data(
-        input_dataframe: pd.DataFrame, 
+        input_dataframe: pd.DataFrame,
         train_filename: str,
         test_filename: str,
         label_column: str,
@@ -63,10 +63,10 @@ def split_data(
     # np.random.seed(seed)
     y = input_dataframe.pop(label_column)
     x_train, x_test, y_train, y_test = train_test_split(
-        input_dataframe, 
-        y, 
-        random_state=seed, 
-        stratify=y, 
+        input_dataframe,
+        y,
+        random_state=seed,
+        stratify=y,
         test_size=test_fraction)
     # reattach labels
     x_train[label_column] = y_train
@@ -93,7 +93,7 @@ def validate_data_with_schema(in_df: pd.DataFrame, schema_file: str) -> pd.DataF
     the_schema = DataFrameSchema.from_json(schema_file)
     the_schema.validate(in_df)
 
-    
+
 def preprocess(in_raw_df: pd.DataFrame) -> pd.DataFrame:
     """preprocess the data, do any cleaning, feature engineering, etc"""
     out_df = in_raw_df.copy()
@@ -112,6 +112,6 @@ def preprocess(in_raw_df: pd.DataFrame) -> pd.DataFrame:
     out_df['Target'] = out_df.Class.cat.codes
 
     return out_df
-    
+
 
 

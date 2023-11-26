@@ -22,7 +22,7 @@ def preprocess_data(
         output_file_path (str): path where output will be written
     """
     logger.info(f'loading data from {input_file_path}')
-    
+
     input_df = load_parquet_file(input_file_path)
     logger.info('preprocessing')
     output_df = preprocess(input_df)
@@ -43,7 +43,7 @@ def main():
     )
     parser.add_argument('input_raw_file', type=str)
     parser.add_argument('output_preprocessed_file', type=str)
-    
+
 
     # arff_filepath = './data/Pistachio_Dataset/Pistachio_16_Features_Dataset/Pistachio_16_Features_Dataset.arff'
     # parquet_path = './data/pistachio_16.snappy.pqt'
@@ -53,6 +53,5 @@ def main():
 
 if __name__ == '__main__':
     main()
-        
-        
-        
+
+

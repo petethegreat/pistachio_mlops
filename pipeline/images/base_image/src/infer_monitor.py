@@ -32,14 +32,14 @@ def eval_psi(dataset_path: str, psi_artifact_path: str, psi_results_path: str) -
     psi_values, details = psi.evaluate(data)
 
     #TODO - handle psi_values as metadata
-    # - do this in pipeline code. have a small component to read the detail json and create artifacts 
+    # - do this in pipeline code. have a small component to read the detail json and create artifacts
     # of typekfp.dsl.Metric  and/or kfp.dsl.MarkDown
-    
+
     # just log the psi_values here
     logger.info('PSI Values:')
     for pv in psi_values:
         logger.info(pv)
-    
+
 
     output_dir = os.path.dirname(psi_results_path)
     if not os.path.exists(output_dir):

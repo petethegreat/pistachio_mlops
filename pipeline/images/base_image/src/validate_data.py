@@ -36,7 +36,7 @@ def validate_data(
         schema_file_path (str): _description_
     """
 
-  
+
     df = load_parquet_file(input_file_path)
     logger.info(f'loaded data from {input_file_path}')
     validate_data_with_schema(df, schema_file_path)

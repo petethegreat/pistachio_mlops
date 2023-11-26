@@ -22,13 +22,12 @@ PREPROC_TEST_PATH='/test_output/preproc_data_out/preproc_test.pqt'
 
 if [ -d $TEST_DIR ]
 then
-  \rm -rf $TEST_DIR/*
+  docker run --rm -v $TEST_DIR:/test_output --entrypoint /bin/bash $IMAGE  -c "rm -r  /test_output/*"
 fi
 
 # lint image code
 # install pylint in image and run it
-docker run --rm -v $TEST_DIR:/test_output --entrypoint /bin/bash $IMAGE \ 
-  "( pip install pylint && pylint . ) > /test_output/pylint_out.txt"
+docker run --rm -v $TEST_DIR:/test_output --entrypoint /bin/bash $IMAGE   -c " (pylint pistachio) > /test_output/pylint_out.txt"
 
 # run load_data
 

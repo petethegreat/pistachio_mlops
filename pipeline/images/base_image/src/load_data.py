@@ -31,7 +31,7 @@ def load_and_split_data(
         test_fraction (float): what fraction of data should be allocated to test
         label_column (str): label column in the input dataframe - used to stratify the split
     """
-   
+
     df = load_arff_file(input_file_path)
     split_data(
         df,
