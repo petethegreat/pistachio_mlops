@@ -16,3 +16,4 @@ Will run using a stock jupyterlab image
 docker run --rm  --name jupy -p 6372:8888 -v ${PWD}/notebook:/home/jovyan/work/pistachio jupyter/scipy-notebook:python-3.11
 ```
 
+pandera for schema/data validation
