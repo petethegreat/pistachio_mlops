@@ -106,10 +106,74 @@ def preprocess_data(
             input_file.path,
             output_file.path]
         )
+#############################################################################
+
+@dsl.component
+def psi_result_logging(
+    psi_results_json: Input[Artifact],
+    psi_markdown: Output[MarkDown],
+    psi_metrics: Output[Metrics],
+    md_note: str = '',
+    metric_prefix: str = 'psi_value'
+    ) -> dsl.ContainerSpec:
+    """psi_result_logging
+    Generate markdown output and log metrics from json file containing psi_results
+
+    Args:
+        psi_results_json_path (Input[Artifact]): _description_
+        psi_markdown_path (Output[MarkDown]): _description_
+        metric_prefix (str, optional): _description_. Defaults to 'psi_value'.
+
+    Returns:
+        dsl.ContainerSpec: component definition
+    """
+    import json
+    import os
+    import logging
+    import sys
+    logger = logging.getLogger('pistachio.psi_result_logging')
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 
+    # load the json content
+    with open(psi_results_json.path,'r') as infile:
+        psi_details = json.load(infile)
+    
+    # setup a string for markdown content
+    # include a table header
+    markdown_content = f"""
+    # PSI results
 
+    Population Stability Index evaluation
 
+    {md_note}
 
+    | Column | Datatype | Missing Values | PSI |"""
 
+    # log psi metrics
+    for column_name in psi_details.keys():
+        the_dtype = psi_details['column_name'].get('datatype','unknown')
+        n_missing = psi_details['column_name'].get('eval_missing',' ')
+        psi_value = psi_details['column_name'].get('PSI','')
+        table_content = f'|{column_name} | {the_dtype} | {n_missing} | {psi_value} |\n'
+
+        # add to table
+        markdown_content += table_content
+
+        metric_name = f'{metric_prefix}_{column_name}'
+        try:
+            psi_metrics.log_metric(metric_name, float(psi_value))
+            logger.info(f'logged {metric_name} to metrics')
+        except Exception as e:
+            logger.warning(f'could not log {metric_name} with value "{psi_value}" ')
+        
+    # write markdown content
+    output_dir = os.path.dirname(psi_markdown.path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    with open(psi_markdown.path,'w') as outfile:
+        outfile.write(markdown_content)
+        logger.info(f'markdown written to {psi_markdown.path}')
+    logger.info('done psi result logging')
+#############################################################################
 
