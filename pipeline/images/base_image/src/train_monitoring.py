@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""data_moniter
+"""train_monitoring
 generate data data profile at train time, to be used when monitering data during inference
 
 """
@@ -7,7 +7,7 @@ generate data data profile at train time, to be used when monitering data during
 from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file
 from pistachio.psi_metrics import PSImetrics
-
+import os
 
 import logging
 import sys
@@ -16,7 +16,7 @@ import sys
 logger = logging.getLogger('pistachio')
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
-def fit_psi(train_data_path: str, output_psi_path: str) -> None:
+def fit_psi(train_data_path: str, psi_artifact_path: str) -> None:
     """fit and save PSI object"""
     logger.info('initialising PSImetrics')
     psi = PSImetrics()
@@ -33,26 +33,22 @@ def fit_psi(train_data_path: str, output_psi_path: str) -> None:
 
     psi.fit(train_data)
 
-    output_dir = os.path.dirname(output_psi_path)
+    output_dir = os.path.dirname(psi_artifact_path)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
 
-    psi.save(output_psi_path)
+    psi.save(psi_artifact_path)
+    logger.info(f'saved psi object to {psi_artifact_path}')
 
-
-
-
-
-
-def main()
+def main():
     """do the things"""
     parser = ArgumentParser(
         description="record data profile at training time so that population stability index can be compited during inference"
     )
     parser.add_argument('train_data_path', type=str)
-    parser.add_argument('output_psi_path', type=str)
+    parser.add_argument('psi_artifact_path', type=str)
     args = parser.parse_args()
-    fit_psi(args.train_data_path, args.output_psi_path)
+    fit_psi(args.train_data_path, args.psi_artifact_path)
 
 if __name__ == '__main__':
     main()

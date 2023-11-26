@@ -3,7 +3,7 @@ components defined using kfp container_spec
 """
 
 from kfp import dsl
-from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath
+from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact
 
 import yaml 
 
