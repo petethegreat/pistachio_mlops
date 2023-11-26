@@ -3,7 +3,7 @@ components defined using kfp container_spec
 """
 
 from kfp import dsl
-from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model, SlicedClassificationMetrics
+from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model, SlicedClassificationMetrics, ClassificationMetrics
 from typing import List, Dict
 
 import yaml 
@@ -354,12 +354,15 @@ def psi_result_logging(
 #############################################################################
 @dsl.component(base_image='python:3.11')
 def evaluation_reporting(
-    train_evalution_results_json: Input[Artifact],
+    train_evaluation_results_json: Input[Artifact],
     test_evaluation_results_json: Input[Artifact],
     feature_importance_plot_png: Input[Artifact],
+    train_roc_curve_plot_png: Input[Artifact],
     test_roc_curve_plot_png: Input[Artifact],
     evaluation_markdown: Output[Markdown],
-    evaluation_metrics: Output[SlicedClassificationMetrics]
+    # evaluation_metrics: Output[SlicedClassificationMetrics] # SlicedClassificationMetrics is buggy
+    train_evaluation_metrics: Output[ClassificationMetrics],
+    test_evaluation_metrics: Output[ClassificationMetrics],
     ):
     """evaluation_reporting
         Generate markdown output and log metrics from json files containing evaluation results
@@ -385,38 +388,64 @@ def evaluation_reporting(
     # load the json content
     with open(test_evaluation_results_json.path,'r') as infile:
         test_results = json.load(infile)
+    with open(train_evaluation_results_json.path,'r') as infile:
+        train_results = json.load(infile)
     
     # setup a string for markdown content
     # include a table header
     markdown_content = f"# Pistachio Classifier Evaluation Results\n\n## Feature Importance\n\n![Feature Importance png][{feature_importance_plot_png.uri}]\n\n"
     # Population Stability Index evaluation\n\n{md_note}\n\n" + \
     #     "| Column | Datatype | Missing Values | PSI |\n|--------|----------|----------------|-----|\n"
-    markdown_content += '## Test Set Metrics\n\n| *Metric* | *Value* |\n|--------|--------|\n'
+    
+    
+    markdown_content += '## Train Set Metrics\n\n| *Metric* | *Value* |\n|--------|--------|\n'
 
+    # Train result metrics
+    for k,v in train_results['metrics'].items():
+        markdown_content += f'| {k} | {v} |\n'
+        # try this
+        train_evaluation_metrics.metadata[k] = v
+
+
+    markdown_content += f'\n ## Train Set ROC curve\n\n![Train Set ROC curve png][{train_roc_curve_plot_png.uri}]\n\n'
+    
+    markdown_content += '## Test Set Metrics\n\n| *Metric* | *Value* |\n|--------|--------|\n'
     # test result metrics
     for k,v in test_results['metrics'].items():
-
         markdown_content += f'| {k} | {v} |\n'
-
+        # try this
+        test_evaluation_metrics.metadata[k] = v
     markdown_content += f'\n ## Test Set ROC curve\n\n![Test Set ROC curve png][{test_roc_curve_plot_png.uri}]\n\n'
     
-    # sliced metrics
-    evaluation_metrics._sliced_metrics = {}
+    # sliced metrics - this is buggy at present
+    # evaluation_metrics._sliced_metrics = {}
     # get roc curve definition
-    test_roc_curve_definition = [
-        test_results['roc_curve']['thresholds'],
-        test_results['roc_curve']['tpr'],
-        test_results['roc_curve']['fpr']]
+
+    # test_roc_curve_definition = [
+    #     test_results['roc_curve']['thresholds'],
+    #     test_results['roc_curve']['tpr'],
+    #     test_results['roc_curve']['fpr']]
     
-    evaluation_metrics.load_roc_readings('test', test_roc_curve_definition)
+    # evaluation_metrics.load_roc_readings('test', test_roc_curve_definition)
+
+    test_evaluation_metrics.log_roc_curve(
+        test_results['roc_curve']['fpr'],
+        test_results['roc_curve']['tpr'],
+        test_results['roc_curve']['thresholds'])
+    
+    train_evaluation_metrics.log_roc_curve(
+        train_results['roc_curve']['fpr'],
+        train_results['roc_curve']['tpr'],
+        train_results['roc_curve']['thresholds'])
+    
     
     # write markdown content
-    output_dir = os.path.dirname(psi_markdown.path)
+    output_dir = os.path.dirname(evaluation_markdown.path)
     if not os.path.exists(output_dir):
         os.makedirs(output_dir)
-    with open(psi_markdown.path,'w') as outfile:
+    with open(evaluation_markdown.path,'w') as outfile:
         outfile.write(markdown_content)
-        logger.info(f'markdown written to {psi_markdown.path}')
-    logger.info('done psi result logging')
+        logger.info(f'markdown written to {evaluation_markdown.path}')
+    logger.info('done model evaluation reporting')
 #############################################################################
 
