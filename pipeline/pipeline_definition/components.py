@@ -21,7 +21,7 @@ base_image_location = f'{artifact_registry}/{base_image_name}'
 
 #############################################################################
 @dsl.component(base_image=base_image_location)
-def load_data2(input_file_path: str,
+def load_data(input_file_path: str,
     output_train: Output[Dataset],
     output_test: Output[Dataset],
     split_seed: int=37,

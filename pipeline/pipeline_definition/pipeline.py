@@ -10,8 +10,7 @@ from kfp.registry import RegistryClient
 
 from container_components import validate_data, preprocess_data, hyperparameter_tuning, train_monitoring # load_data
 from container_components import infer_monitoring, train_final_model, evaluate_trained_model
-from components import  evaluation_reporting, load_data2, psi_result_logging
-
+from components import  evaluation_reporting, load_data, psi_result_logging
 
 import yaml
 
@@ -45,14 +44,14 @@ def pistachio_training_pipeline(
         test_split_data_fraction (float): _description_
     """
     
-
+    # container components
     # load_data_task = load_data(
     #     input_file_path=arff_file_path,
     #     split_seed=train_test_split_seed,
     #     test_fraction=test_split_data_fraction,
     #     label_column=stratify_column_name)
     
-    load_data_task = load_data2(
+    load_data_task = load_data(
         input_file_path=arff_file_path,
         split_seed=train_test_split_seed,
         test_fraction=test_split_data_fraction,
@@ -113,7 +112,7 @@ def pistachio_training_pipeline(
         featurelist_json=preprocess_train_data_task.outputs["feature_list"],
         metric_prefix="train_metrics",
         dataset_desc='Training Data'
-    )
+    ).set_display_name('model evaluation - training data')
 
     evaluate_on_test_task = evaluate_trained_model(
         dataset=preprocess_test_data_task.outputs["output_file"],
@@ -121,7 +120,7 @@ def pistachio_training_pipeline(
         featurelist_json=preprocess_test_data_task.outputs["feature_list"],
         metric_prefix="test_metrics",
         dataset_desc='Test Data'
-    )
+    ).set_display_name('model evaluation - test data')
     # evaluate on test data task 
 
     # log evaluation results to vertex ai
