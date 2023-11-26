@@ -53,14 +53,13 @@ components:
           parameterType: NUMBER_INTEGER
     outputDefinitions:
       artifacts:
-        optimal_parameters_json:
-          artifactType:
-            schemaTitle: system.Artifact
-            schemaVersion: 0.0.1
         tuning_results_json:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
+      parameters:
+        optimal_parameters_json:
+          parameterType: STRUCT
   comp-infer-monitoring:
     executorLabel: exec-infer-monitoring
     inputDefinitions:
@@ -230,7 +229,7 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''preprocessed_train_data''].path}}'
         - '{{$.inputs.artifacts[''featurelist_json''].path}}'
         - '{{$.outputs.artifacts[''tuning_results_json''].path}}'
-        - '{{$.outputs.artifacts[''optimal_parameters_json''].path}}'
+        - '{{$.outputs.parameters[''optimal_parameters_json''].output_file}}'
         - --cv_seed
         - '{{$.inputs.parameters[''cv_seed'']}}'
         - --cv_n_folds
@@ -330,23 +329,23 @@ deploymentSpec:
           \ infile:\n        psi_details = json.load(infile)\n\n    # setup a string\
           \ for markdown content\n    # include a table header\n    markdown_content\
           \ = f\"\"\"\n    # PSI results\n\n    Population Stability Index evaluation\n\
-          \n    {md_note}\n\n    | Column | Datatype | Missing Values | PSI |\"\"\"\
-          \n\n    # log psi metrics\n    for column_name in psi_details.keys():\n\
-          \        the_dtype = psi_details['column_name'].get('datatype','unknown')\n\
-          \        n_missing = psi_details['column_name'].get('eval_missing',' ')\n\
-          \        psi_value = psi_details['column_name'].get('PSI','')\n        table_content\
-          \ = f'|{column_name} | {the_dtype} | {n_missing} | {psi_value} |\\n'\n\n\
-          \        # add to table\n        markdown_content += table_content\n\n \
-          \       metric_name = f'{metric_prefix}_{column_name}'\n        try:\n \
-          \           psi_metrics.log_metric(metric_name, float(psi_value))\n    \
-          \        logger.info(f'logged {metric_name} to metrics')\n        except\
-          \ Exception as e:\n            logger.warning(f'could not log {metric_name}\
-          \ with value \"{psi_value}\" ')\n\n    # write markdown content\n    output_dir\
-          \ = os.path.dirname(psi_markdown.path)\n    if not os.path.exists(output_dir):\n\
-          \        os.makedirs(output_dir)\n    with open(psi_markdown.path,'w') as\
-          \ outfile:\n        outfile.write(markdown_content)\n        logger.info(f'markdown\
-          \ written to {psi_markdown.path}')\n    logger.info('done psi result logging')\n\
-          \n"
+          \n    {md_note}\n\n    | Column | Datatype | Missing Values | PSI |\n  \
+          \  |--------|----------|----------------|-----|\n    \"\"\"\n\n    # log\
+          \ psi metrics\n    for column_name in psi_details.keys():\n        the_dtype\
+          \ = psi_details[column_name].get('datatype','unknown')\n        n_missing\
+          \ = psi_details[column_name].get('eval_missing',' ')\n        psi_value\
+          \ = psi_details[column_name].get('PSI','')\n        table_content = f'|\
+          \ {column_name} | {the_dtype} | {n_missing} | {psi_value} |\\n'\n\n    \
+          \    # add to table\n        markdown_content += table_content\n\n     \
+          \   metric_name = f'{metric_prefix}_{column_name}'\n        try:\n     \
+          \       psi_metrics.log_metric(metric_name, float(psi_value))\n        \
+          \    logger.info(f'logged {metric_name} to metrics')\n        except Exception\
+          \ as e:\n            logger.warning(f'could not log {metric_name} with value\
+          \ \"{psi_value}\" ')\n\n    # write markdown content\n    output_dir = os.path.dirname(psi_markdown.path)\n\
+          \    if not os.path.exists(output_dir):\n        os.makedirs(output_dir)\n\
+          \    with open(psi_markdown.path,'w') as outfile:\n        outfile.write(markdown_content)\n\
+          \        logger.info(f'markdown written to {psi_markdown.path}')\n    logger.info('done\
+          \ psi result logging')\n\n"
         image: python:3.7
     exec-train-monitoring:
       container:

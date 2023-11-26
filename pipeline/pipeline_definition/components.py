@@ -4,6 +4,7 @@ components defined using kfp container_spec
 
 from kfp import dsl
 from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics
+from typing import List, Dict
 
 import yaml 
 
@@ -167,6 +168,7 @@ def hyperparameter_tuning(
     preprocessed_train_data: Input[Dataset],
     featurelist_json: Input[Artifact],
     tuning_results_json: Output[Artifact],
+    # optimal_parameters_json: OutputPath(Dict), # this works. But the containers aren't set up to take a string of json as an argument, rather a filename containing json.
     optimal_parameters_json: Output[Artifact],
     cv_seed: int=43,
     cv_n_folds: int=5,
@@ -250,14 +252,16 @@ def psi_result_logging(
 
     {md_note}
 
-    | Column | Datatype | Missing Values | PSI |"""
+    | Column | Datatype | Missing Values | PSI |
+    |--------|----------|----------------|-----|
+    """
 
     # log psi metrics
     for column_name in psi_details.keys():
         the_dtype = psi_details[column_name].get('datatype','unknown')
         n_missing = psi_details[column_name].get('eval_missing',' ')
         psi_value = psi_details[column_name].get('PSI','')
-        table_content = f'|{column_name} | {the_dtype} | {n_missing} | {psi_value} |\n'
+        table_content = f'| {column_name} | {the_dtype} | {n_missing} | {psi_value} |\n'
 
         # add to table
         markdown_content += table_content
