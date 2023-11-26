@@ -8,6 +8,7 @@ hyperparameter search for xgboost classifier
 from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file, write_to_json, read_from_json
 from pistachio.model_training import optimise_tune, cast_integer_params
+from pistachio.utils import ensure_directory_exists
 from typing import Dict, Tuple
 import os
 
@@ -92,9 +93,7 @@ def model_tune(
 
     # create output directory, if it does not already exist
     for path in [tune_results_json, optimal_parameters_json]:
-        output_dir = os.path.dirname(tune_results_json)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        ensure_directory_exists(path)
     
     write_to_json(optimal_parameters, optimal_parameters_json)
     logger.info(f'wrote optimal results to {tune_results_json}')

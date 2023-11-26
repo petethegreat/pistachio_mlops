@@ -14,7 +14,7 @@ from xgboost import XGBClassifier
 
 from pistachio.data_handling import load_parquet_file, read_from_json
 from pistachio.model_training import train_model, save_model_to_pickle
-
+from pistachio.utils import ensure_directory_exists
 
 
 ## logging
@@ -47,9 +47,7 @@ def train_final_model(
     model = train_model(train_x, train_y, parameters )
 
     # create output directory, if it does not already exist
-    output_dir = os.path.dirname(output_model_artifact_path)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    ensure_directory_exists(output_model_artifact_path)
 
     save_model_to_pickle(model, output_model_artifact_path)
 

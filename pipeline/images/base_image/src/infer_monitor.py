@@ -6,6 +6,7 @@ run data monitoring at inference time
 from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file
 from pistachio.psi_metrics import PSImetrics
+from pistachio.utils import ensure_directory_exists
 import os
 
 import logging
@@ -40,10 +41,7 @@ def eval_psi(dataset_path: str, psi_artifact_path: str, psi_results_path: str) -
     for pv in psi_values:
         logger.info(pv)
 
-
-    output_dir = os.path.dirname(psi_results_path)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    ensure_directory_exists(psi_results_path)
 
     with open(psi_results_path,'w') as outfile:
         json.dump(details, outfile, indent=4)

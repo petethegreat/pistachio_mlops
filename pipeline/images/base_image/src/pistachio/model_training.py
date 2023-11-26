@@ -157,7 +157,7 @@ def read_model_from_pickle(
         XGBClassifier: _description_
     """
     
-    with open(model_pickle_input, 'wb') as infile:
+    with open(model_pickle_input, 'rb') as infile:
         model = pickle.load(infile)
     logger.info(f"loaded model from {model_pickle_input}")
     return model

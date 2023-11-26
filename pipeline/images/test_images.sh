@@ -15,18 +15,24 @@ PSI_RESULTS_JSON='./test_output/test_psi_results.json'
 
 IMAGE='pistachio_base:0.0.1'
 
+# these are all paths *in* the container, '/test_output/' should be specified absolutely
+TRAIN_PATH="/test_output/load_data_out/train.pqt"
+TEST_PATH="/test_output/load_data_out/test.pqt"
 
-TRAIN_PATH='/test_output/load_data_out/train.pqt'
-TEST_PATH='/test_output/load_data_out/test.pqt'
+PREPROC_TRAIN_PATH="/test_output/preproc_data_out/preproc_train.pqt"
+PREPROC_TEST_PATH="/test_output/preproc_data_out/preproc_test.pqt"
+FEATURE_LIST_PATH="/test_output/preproc_data_out/features.json"
 
-PREPROC_TRAIN_PATH='/test_output/preproc_data_out/preproc_train.pqt'
-PREPROC_TEST_PATH='/test_output/preproc_data_out/preproc_test.pqt'
-FEATURE_LIST_PATH='/test_output/preproc_data_out/features.json'
+OPTIMAL_PARAMETERS_PATH="/test_output/tuning/optimal_parameters.json"
+TUNING_RESULTS_PATH="/test_output/tuning/tuning_details.json"
 
-OPTIMAL_PARAMETERS_PATH='/test_output/tuning/optimal_parameters.json'
-TUNING_RESULTS_PATH='/test_output/tuning/tuning_details.json'
+MODEL_ARTIFACT_PATH="/test_output/model_training/model.pkl"
 
-MODEL_ARTIFACT_PATH='/test_output/model_training/model.pkl'
+EVALUATE_TRAIN_FI_PLOT_PATH="/test_output/train_evaluation/feature_importance.png"
+EVALUATE_TRAIN_METRICS_PATH="/test_output/train_evaluation/metrics.json"
+
+EVALUATE_TEST_FI_PLOT_PATH="/test_output/test_evaluation/feature_importance.png"
+EVALUATE_TEST_METRICS_PATH="/test_output/test_evaluation/metrics.json"
 
 if [ -d $TEST_DIR ]
 then
@@ -79,5 +85,13 @@ docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./mod
 echo "running model training"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./train_model.py" $IMAGE \
   "$PREPROC_TRAIN_PATH"  "$OPTIMAL_PARAMETERS_PATH" "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" 
+
+echo "running model evaluation on train data"
+docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./evaluate_model.py" $IMAGE \
+  "$PREPROC_TRAIN_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TRAIN_METRICS_PATH" "$EVALUATE_TRAIN_FI_PLOT_PATH" 
+
+echo "running model evaluation on test data"
+docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./evaluate_model.py" $IMAGE \
+  "$PREPROC_TEST_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TEST_METRICS_PATH" "$EVALUATE_TEST_FI_PLOT_PATH" 
 
 

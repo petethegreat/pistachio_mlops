@@ -241,7 +241,7 @@ def train_final_model(
             featurelist_json.path]
         )
 #############################################################################
-@dsl.component
+@dsl.component(base_image='python:3.11')
 def psi_result_logging(
     psi_results_json: Input[Artifact],
     psi_markdown: Output[Markdown],

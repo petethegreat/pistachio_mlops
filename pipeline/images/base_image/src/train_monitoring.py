@@ -7,6 +7,8 @@ generate data data profile at train time, to be used when monitering data during
 from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file
 from pistachio.psi_metrics import PSImetrics
+from pistachio.utils import ensure_directory_exists
+
 import os
 
 import logging
@@ -33,12 +35,12 @@ def fit_psi(train_data_path: str, psi_artifact_path: str) -> None:
 
     psi.fit(train_data)
 
-    output_dir = os.path.dirname(psi_artifact_path)
-    if not os.path.exists(output_dir):
-        os.makedirs(output_dir)
+    ensure_directory_exists(psi_artifact_path)
+
 
     psi.save(psi_artifact_path)
     logger.info(f'saved psi object to {psi_artifact_path}')
+##############################################################################
 
 def main():
     """do the things"""

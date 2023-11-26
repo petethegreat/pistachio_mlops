@@ -4,6 +4,7 @@
 
 from argparse import ArgumentParser
 from pistachio.data_handling import load_arff_file, split_data
+from pistachio.utils import ensure_directory_exists
 
 
 import logging
@@ -41,10 +42,8 @@ def load_and_split_data(
 
     # create output directories if they do not already exist
     for path in [output_train_file_path, output_train_file_path]:
-        output_dir = os.path.dirname(path)
-
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        ensure_directory_exists(path)
+    
     # split the data
     split_data(
         df,

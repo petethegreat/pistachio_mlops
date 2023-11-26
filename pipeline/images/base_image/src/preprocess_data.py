@@ -8,7 +8,7 @@ import sys
 
 from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file, preprocess
-
+from pistachio.utils import ensure_directory_exists
 ## logging
 
 logger = logging.getLogger('pistachio')
@@ -33,9 +33,7 @@ def preprocess_data(
     output_df, features = preprocess(input_df)
 
     for path in [output_file_path, feature_list_path]:
-        output_dir = os.path.dirname(path)
-        if not os.path.exists(output_dir):
-            os.makedirs(output_dir)
+        ensure_directory_exists(path)
 
     output_df.to_parquet(output_file_path)
     logger.info(f'wrote processed data to {output_file_path}')
