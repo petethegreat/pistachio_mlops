@@ -9,7 +9,7 @@ import sys
 import os
 
 from argparse import ArgumentParser
-
+from typing import List
 from xgboost import XGBClassifier
 
 from pistachio.data_handling import load_parquet_file, read_from_json
@@ -34,10 +34,30 @@ def train_final_model(
         optimal_parameters_json_path (str): path to json file containing optimal classifier parameters
         output_model_artifact_path (str): output location for model artifact
     """
+    features = read_from_json(features_path)
+    train_final_model_features(
+        training_data_path=training_data_path,
+        optimal_parameters_json_path=optimal_parameters_json_path,
+        output_model_artifact_path=output_model_artifact_path,
+        features=features)
+#########################################################
+
+def train_final_model_features(
+    training_data_path: str,
+    optimal_parameters_json_path: str,
+    output_model_artifact_path: str,
+    features: List[str]
+    ):
+    """train an XGBClassifier
+
+    Args:
+        training_data_path (str): path to training data parquet
+        optimal_parameters_json_path (str): path to json file containing optimal classifier parameters
+        output_model_artifact_path (str): output location for model artifact
+    """
 
     train_data = load_parquet_file(training_data_path)
     logger.info(f'read data from {training_data_path} ')
-    features = read_from_json(features_path)
     parameters = read_from_json(optimal_parameters_json_path)
 
 
@@ -50,8 +70,6 @@ def train_final_model(
     ensure_directory_exists(output_model_artifact_path)
 
     save_model_to_pickle(model, output_model_artifact_path)
-
-    
 #########################################################
 
 def main():

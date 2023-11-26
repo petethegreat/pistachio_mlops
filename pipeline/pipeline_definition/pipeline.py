@@ -8,9 +8,11 @@ from kfp import dsl
 from kfp import compiler
 from kfp.registry import RegistryClient
 
-from container_components import validate_data, preprocess_data, hyperparameter_tuning, train_monitoring # load_data
-from container_components import infer_monitoring, train_final_model, evaluate_trained_model
-from components import  evaluation_reporting, load_data, psi_result_logging
+# from container_components import hyperparameter_tuning  load_data, preprocess_data, validate_data, train_monitoring
+# from container_components import train_final_model, evaluate_trained_model, infer_monitoring
+from components import load_data, validate_data, preprocess_data, train_monitoring, infer_monitoring, hyperparameter_tuning
+from components import train_final_model, evaluate_trained_model 
+from components import  evaluation_reporting, psi_result_logging
 
 import yaml
 

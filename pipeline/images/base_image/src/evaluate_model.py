@@ -12,6 +12,7 @@ from pistachio.model_evaluation import get_evaluation_metrics, plot_feature_impo
 from pistachio.utils import ensure_directory_exists
 from pistachio.model_training import read_model_from_pickle
 import seaborn as sns
+from typing import List
 
 import pickle
 import logging
@@ -24,7 +25,6 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 sns.set()
 
 #########################################################
-
 
 def evaluate_model(
     dataset_path: str,
@@ -45,10 +45,40 @@ def evaluate_model(
         metric_prefix (str): _description_
         dataset_desc (str): _description_
     """
+    features = read_from_json(featurelist_json)
+    evaluate_model_features(
+        dataset_path=dataset_path,
+        model_pickle_path=model_pickle_path,
+        features=features,
+        metric_results_json=metric_results_json,
+        feature_importance_plot_png=feature_importance_plot_png,
+        roc_curve_plot_png=roc_curve_plot_png,
+        metric_prefix=metric_prefix,
+        dataset_desc=dataset_desc)
+#########################################################
+
+def evaluate_model_features(
+    dataset_path: str,
+    model_pickle_path: str,
+    features: List[str],
+    metric_results_json: str,
+    feature_importance_plot_png: str,
+    roc_curve_plot_png: str,
+    metric_prefix: str,
+    dataset_desc: str,
+    ):
+    """evaluate model performance on a dataset
+
+    Args:
+        dataset_path (str): _description_
+        model_pickle_path (str): _description_
+        featurelist_json (str): _description_
+        metric_prefix (str): _description_
+        dataset_desc (str): _description_
+    """
 
     dataset = load_parquet_file(dataset_path)
     model = read_model_from_pickle(model_pickle_path)
-    features = read_from_json(featurelist_json)
 
     for path in [metric_results_json, feature_importance_plot_png]:
         ensure_directory_exists(path)

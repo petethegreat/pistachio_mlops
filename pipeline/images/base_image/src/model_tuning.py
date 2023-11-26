@@ -9,7 +9,7 @@ from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file, write_to_json, read_from_json
 from pistachio.model_training import optimise_tune, cast_integer_params
 from pistachio.utils import ensure_directory_exists
-from typing import Dict, Tuple
+from typing import Dict, Tuple, List
 import os
 
 from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score, accuracy_score, make_scorer
@@ -35,6 +35,7 @@ def model_tune(
 ) -> None:
     """model_tune
     run hyperparameter tuning for an XGBClassifier using BayesOpt
+    
 
     Args:
         train_file (str): path to preprocessed training data file
@@ -49,10 +50,52 @@ def model_tune(
         opt_random_seed (int, optional): random seed for optimisation/searching. Defaults to 43.
     """
 
+    features = read_from_json(features_path)
+    model_tune_features(
+        train_file=train_file,
+        features=features,
+        tune_results_json=tune_results_json,
+        optimal_parameters_json=optimal_parameters_json,
+        pbounds=pbounds,
+        cv_seed=cv_seed,
+        n_folds=n_folds,
+        opt_n_init=opt_n_init,
+        opt_random_seed=opt_random_seed
+    )
+################################################################################
+
+def model_tune_features(
+    train_file: str,
+    features: List[str],
+    tune_results_json: str,
+    optimal_parameters_json: str,
+    pbounds: Dict[str, Tuple[float,float]],
+    cv_seed: int=29,
+    n_folds: int=5,
+    opt_n_init: int=10,
+    opt_n_iter: int=50,
+    opt_random_seed: int=43
+) -> None:
+    """model_tune
+    run hyperparameter tuning for an XGBClassifier using BayesOpt
+
+    Args:
+        train_file (str): path to preprocessed training data file
+        features (List[str]): list of features
+        tune_results_json (str): path to write tuning results details
+        optimal_parameters_json (str): path to write optimal model parameters
+        pbounds (Dict[str,tuple[float,float]]): boundaries of the hyperparameter space to be searched
+        cv_seed (int, optional): seed used for splitting/defining cross validation folds. Defaults to 29.
+        n_folds (int, optional): number of folds to use in cross validation. Defaults to 5.
+        opt_n_init (int, optional): number of initial (random/exploration/unguided) trials to conduct. Defaults to 10.
+        opt_n_iter (int, optional): number of search/optimisation trials to conduct. Defaults to 50.
+        opt_random_seed (int, optional): random seed for optimisation/searching. Defaults to 43.
+    """
+
     logger.info('loading data')
     train_data_df = load_parquet_file(train_file)
     # seperate features and label
-    features = read_from_json(features_path)
+    # features = read_from_json(features_path)
     train_x = train_data_df[features]
     train_y = train_data_df.Target.values
     

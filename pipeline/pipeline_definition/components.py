@@ -5,7 +5,7 @@ lightweight components that have a base image specified.
 
 from kfp import dsl
 from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model, SlicedClassificationMetrics, ClassificationMetrics
-from typing import List, Dict
+from typing import List, Dict, Tuple
 from kfp.dsl import ConcatPlaceholder
 import yaml 
 
@@ -27,9 +27,9 @@ def load_data(input_file_path: str,
     split_seed: int=37,
     test_fraction: float=0.2,
     label_column: str='Class'
-    ):
-    """load_data2
-    lightweight component to load data from arff file and write to parquet
+    )-> None:
+    """load_data
+    component to load data from arff file and write to parquet
 
     Args:
         input_file_path (str): _description_
@@ -38,6 +38,9 @@ def load_data(input_file_path: str,
         split_seed (int, optional): seed used when carrying out train/test split. Defaults to 37.
         test_fraction (float, optional): fraction of data to be allocated to test split. Defaults to 0.2.
         label_column (str, optional): Label column in that dataset - used to stratify the splitting. Defaults to 'Class'.
+
+    Returns:
+        None
     """
 
     from load_data import load_and_split_data
@@ -56,6 +59,234 @@ def load_data(input_file_path: str,
     )
 
 #############################################################################
+
+@dsl.component(base_image=base_image_location)
+def validate_data(
+    input_file: Input[Dataset],
+    schema_file_path: str
+    )-> None:
+    """validate_data component
+
+    Args:
+        input_file (Input[Dataset]): path to input dataset to be validated
+        schema_file_path (str): pandera schema file to use for validation
+
+    Returns:
+        None
+    """
+    from validate_data import validate_data
+    validate_data(input_file.path, schema_file_path)
+#############################################################################
+@dsl.component(base_image=base_image_location)
+def preprocess_data(
+    input_file: Input[Dataset],
+    output_file: Output[Dataset],
+    )-> None:
+    """preprocess_data component
+
+    Args:
+        input_file (Input[Dataset]): path to raw data to be preprocessed
+        output_file (Output[Dataset]): path where preprocessed data will be written 
+        feature_list (Output[Artifact]): path to where list of feature columns will be written as json
+
+    Returns:
+        None
+    """   
+    from preprocess_data import preprocess_data_features
+
+    output_file.path = output_file.path + '.pqt'
+
+    features = preprocess_data_features( input_file.path, output_file.path)
+    output_file.metadata['features'] = features
+#############################################################################
+
+@dsl.component(base_image=base_image_location)
+def train_monitoring(
+    train_data: Input[Dataset],
+    psi_artifact: Output[Artifact]
+    ) -> None:
+    """train_monitoring component
+
+    Args:
+        train_data (Input[Dataset]): preprocessed training data
+        psi_artifact (Output[Artifact]): PSI artifact containing trained PSIMetrics object
+
+    Returns:
+        None
+    """
+
+    from train_monitoring import fit_psi
+    
+    psi_artifact.path = psi_artifact.path + '.pkl'
+    fit_psi(train_data.path, psi_artifact.path)
+#############################################################################
+
+@dsl.component(base_image=base_image_location)
+def infer_monitoring(
+    inference_data: Input[Dataset],
+    psi_artifact: Input[Artifact],
+    psi_results_json: Output[Artifact]
+    ) -> None:
+    """inference monitoring component
+    check for data drift when running inference
+
+    Args:
+        inference_data (Input[Dataset]): Dataset to be used for model inference
+        psi_artifact (Input[Artifact]): PSI object containing statistics computed at training time
+        psi_results_json (Output[Artifact]): PSI results as json file
+
+    Returns:
+        None
+    """
+   
+    from infer_monitoring import eval_psi
+    from pistachio.data_handling import read_from_json
+
+    psi_results_json.path = psi_results_json.path + '.json'
+
+    eval_psi(inference_data.path, psi_artifact.path, psi_results_json.path)
+    # attach psi results as metadata
+    psi_results = read_from_json(psi_results_json.path)
+    inference_data.metadata['psi_evaluation_results'] = psi_results
+#############################################################################
+# tuples here are not ok
+@dsl.component(base_image=base_image_location)
+def hyperparameter_tuning(
+    preprocessed_train_data: Input[Dataset],
+    tuning_results_json: Output[Artifact],
+    optimal_parameters_json: Output[Artifact],
+    cv_seed: int=43,
+    cv_n_folds: int=5,
+    opt_n_init: int=10,
+    opt_n_iter: int=200,
+    opt_random_seed: int=73,
+    learning_rate_bounds: Tuple[float,float]=(0.01, 0.3),
+    gamma_bounds: Tuple[float,float] = (0.0, 0.3),
+    min_child_weight_bounds: Tuple[float,float] = (0.01, 0.07),
+    max_depth_bounds: Tuple[int,int] = (3, 5),
+    subsample_bounds: Tuple[float,float] = (0.7, 0.9),
+    reg_alpha_bounds: Tuple[float,float] = (0.01, 0.1),
+    reg_lambda_bounds: Tuple[float,float] = (0.01, 0.1),
+    colsample_bytree_bounds: Tuple[float,float] = (0.1, 0.5)
+    ) -> None:
+    """hyperparameter tuning component
+    tunes an CGB classifier using bayesopt to search hyperparameter space
+
+    Args:
+        preprocessed_train_data (Input[Dataset]): path to preprocessed training dataset (parquet)
+        tuning_results_json (Output[Artifact]): output path for tuning results/details (json)
+        optimal_parameters_json (Output[Artifact]): output path to best parameter set found (json)
+        cv_seed (int, optional): seed used for splitting fold definition in cross validation. Defaults to 43.
+        cv_n_folds (int, optional): number of folds for cross validation. Defaults to 5.
+        opt_n_init (int, optional): number of initial (random) trials, prior to optimised searching. Defaults to 10.
+        opt_n_iter (int, optional): number of search trials to run. Defaults to 200.
+        opt_random_seed (int, optional): random seed to be used during search process. Defaults to 73.
+
+    Returns:
+        None
+    """
+    from model_tuning import model_tune_features
+    tuning_results_json.path = tuning_results_json.path + '.json'
+    optimal_parameters_json.path = optimal_parameters_json.path + '.json'
+
+    pbounds = {
+        'learning_rate': learning_rate_bounds,
+        'gamma': gamma_bounds,
+        'min_child_weight': min_child_weight_bounds,
+        'max_depth': max_depth_bounds,
+        'subsample': subsample_bounds,
+        'reg_alpha': reg_alpha_bounds,
+        'reg_lambda': reg_lambda_bounds,
+        'colsample_bytree': colsample_bytree_bounds
+    }
+
+    features = preprocessed_train_data.metadata['features']
+    model_tune_features(
+        train_file=preprocessed_train_data.path,
+        features=features,
+        tune_results_json=tuning_results_json.path,
+        optimal_parameters_json=optimal_parameters_json.path,
+        pbounds=pbounds,
+        cv_seed=cv_seed,
+        n_folds=n_folds,
+        opt_n_init=opt_n_init,
+        opt_n_iter=opt_n_iter,
+        opt_random_seed=opt_random_seed
+    )
+#############################################################################
+
+@dsl.component(base_image=base_image_location)
+def train_final_model(
+    preprocessed_train_data: Input[Dataset],
+    optimal_parameters_json: Input[Artifact],
+    model_pickle: Output[Model],
+    ) -> None:
+    """model training component
+
+    trains a model and saves it as an artifact (pickle file) based on the parameters obtained from tuning
+
+    Args:
+        preprocessed_train_data (Input[Dataset]): preprocessed training data
+        optimal_parameters_json (Input[Artifact]): parameters to use for the final model
+        model_pickle (Output[Model]): trained model artifact
+
+    Returns:
+        None
+    """
+    from train_model import train_final_model_features
+
+    model_pickle.path = model_pickle.path + '.pkl'
+    features = preprocessed_train_data.metadata['features']
+
+    train_final_model_features(
+        training_data_path=preprocessed_train_data.path,
+        optimal_parameters_json_path=optimal_parameters_json.path,
+        output_model_artifact_path=model_pickle.path,
+        features=features
+    )
+#############################################################################
+@dsl.component(base_image=base_image_location)
+def evaluate_trained_model(
+    dataset: Input[Dataset],
+    model_pickle: Input[Model],
+    metric_results_json: Output[Artifact],
+    feature_importance_plot_png: Output[Artifact],
+    roc_curve_plot_png: Output[Artifact],
+    metric_prefix: str='metric_',
+    dataset_desc: str='dataset'
+    ) -> dsl.ContainerSpec:
+    """evaluate trained model on specified dataset
+
+    Args:
+        dataset (Input[Dataset]): dataset to be used for model inference
+        model_pickle (Input[Model]): pickle file containing pistachio XGBClassifier
+        metric_results_json (Output[Artifact]): location where evaluation metrics will be written (as json)
+        feature_importance_plot_png (Output[Artifact]): path where feature importance plot will be written as png
+        roc_curve_plot_png (Output[Artifact]): path where roc curve plot will be written as png
+        metric_prefix (str, optional): string added as a prefix to metric keys. Defaults to 'metric_'.
+        dataset_desc (str, optional): dataset description, used in plot titles. Defaults to 'dataset'.
+
+    Returns:
+        dsl.ContainerSpec: _description_
+    """
+    from train_model import evaluate_model_features
+    features = dataset.metadata['features']
+    
+    metric_results_json.path = metric_results_json.path + '.json'
+    feature_importance_plot_png.path = feature_importance_plot_png.path + '.png'
+    roc_curve_plot_png.path = roc_curve_plot_png.path + '.png'
+
+    evaluate_model_features(
+    dataset_path=dataset.path,
+    model_pickle_path=model_pickle.path,
+    features=features,
+    metric_results_json=metric_results_json.path,
+    feature_importance_plot_png=feature_importance_plot_png.path,
+    roc_curve_plot_png=roc_curve_plot_png.path,
+    metric_prefix=metric_prefix,
+    dataset_desc=dataset_desc)
+#############################################################################
+
 @dsl.component(base_image='python:3.11')
 def evaluation_reporting(
     train_evaluation_results_json: Input[Artifact],
