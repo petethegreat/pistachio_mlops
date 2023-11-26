@@ -1,5 +1,7 @@
 #!/bin/bash
 
+
+
 #run pipeline components locally
 
 TEST_DIR="$PWD/test_output"
@@ -19,41 +21,58 @@ TEST_PATH='/test_output/load_data_out/test.pqt'
 
 PREPROC_TRAIN_PATH='/test_output/preproc_data_out/preproc_train.pqt'
 PREPROC_TEST_PATH='/test_output/preproc_data_out/preproc_test.pqt'
+FEATURE_LIST_PATH='/test_output/preproc_data_out/features.json'
+
+OPTIMAL_PARAMETERS_PATH='/test_output/tuning/optimal_parameters.json'
+TUNING_RESULTS_PATH='/test_output/tuning/tuning_details.json'
+
 
 if [ -d $TEST_DIR ]
 then
+  echo "deleting $TEST_DIR"
   docker run --rm -v $TEST_DIR:/test_output --entrypoint /bin/bash $IMAGE  -c "rm -r  /test_output/*"
 fi
 
 # lint image code
 # install pylint in image and run it
+echo "linting code"
 docker run --rm -v $TEST_DIR:/test_output --entrypoint /bin/bash $IMAGE   -c " (pylint pistachio) > /test_output/pylint_out.txt"
-
+echo "pylint status: $?"
 # run load_data
 
+# stop execution on error
+set -e
+
+echo "running load_data"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data $IMAGE \
   "./load_data.py"  "$ARFF_FILE"  "$TRAIN_PATH"  "$TEST_PATH"  --split_seed 37  --test_fraction 0.2  --label_column Class
 
 # validate data
-
+echo "running validate_data (train)"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data $IMAGE \
   "./validate_data.py"  "$TRAIN_PATH"  "$SCHEMA_FILE"  
+
+echo "running validate_data (test)"
 
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data $IMAGE \
   "./validate_data.py"  "$TEST_PATH"  "$SCHEMA_FILE"  
 
 # preprocess data
-
+echo "running preprocess data (train)"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data $IMAGE \
-  "./preprocess_data.py"  "$TRAIN_PATH"  "$PREPROC_TRAIN_PATH"  
+  "./preprocess_data.py"  "$TRAIN_PATH"  "$PREPROC_TRAIN_PATH" "$FEATURE_LIST_PATH" 
 
+echo "running preprocess data (test)"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data $IMAGE \
-  "./preprocess_data.py"  "$TEST_PATH"  "$PREPROC_TEST_PATH"  
+  "./preprocess_data.py"  "$TEST_PATH"  "$PREPROC_TEST_PATH" "/test_output/junk.json" 
 
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./train_monitoring.py" $IMAGE \
   "$PREPROC_TRAIN_PATH"  "$PSI_FILE"  
 
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./infer_monitor.py" $IMAGE \
   "$PREPROC_TEST_PATH"  "$PSI_FILE" "$PSI_RESULTS_JSON"
+echo "running model tuning"
+docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./model_tuning.py" $IMAGE \
+  "$PREPROC_TRAIN_PATH"  "$FEATURE_LIST_PATH" "$TUNING_RESULTS_PATH" "$OPTIMAL_PARAMETERS_PATH" "--cv_seed" "37"
 
 

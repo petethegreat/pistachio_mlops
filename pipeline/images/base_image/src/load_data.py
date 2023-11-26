@@ -8,6 +8,7 @@ from pistachio.data_handling import load_arff_file, split_data
 
 import logging
 import sys
+import os
 ## logging
 
 logger = logging.getLogger('pistachio')
@@ -32,7 +33,19 @@ def load_and_split_data(
         label_column (str): label column in the input dataframe - used to stratify the split
     """
 
+    # check input file exists
     df = load_arff_file(input_file_path)
+    if not os.path.exists(input_file_path):
+        logger.error(f'input arff file not found at {input_file_path}')
+        sys.exit(f'input arff file not found at {input_file_path}')
+
+    # create output directories if they do not already exist
+    for path in [output_train_file_path, output_train_file_path]:
+        output_dir = os.path.dirname(path)
+
+        if not os.path.exists(output_dir):
+            os.makedirs(output_dir)
+    # split the data
     split_data(
         df,
         output_train_file_path,

@@ -1,17 +1,50 @@
+"""data_handling.py
+functions for passing/transforming data"""
 
-from scipy.io import arff
-import pandas as pd
+import json
+
+
 import os
 import logging
+from typing import List, Dict, Tuple
 
-from typing import List
+import pandas as pd
 import numpy as np
-from sklearn.model_selection import train_test_split
 
+from scipy.io import arff
+from sklearn.model_selection import train_test_split
 from pandera import DataFrameSchema
 from pandas.api.types import CategoricalDtype
 
 logger = logging.getLogger(__name__)
+
+def write_to_json(content: List | Dict, path: str) -> None:
+    """write_to_json
+    convenience function - write content to path
+
+    Args:
+        content (List | Dict): content to be serialised
+        path (str): output file location
+    """
+
+    with open(path, 'w') as outfile:
+        json.dump(content, outfile)
+#####################################################################
+
+def read_from_json(path: str) -> List | Dict:
+    """read_from_json
+    convenience function
+
+    Args:
+        path (str): path to json file
+
+    Returns:
+        List | Dict: deserialised content
+    """
+    with open(path, 'r') as infile:
+        content = json.load(infile)
+    return content
+#####################################################################
 
 def arff_to_parquet(input_arff: str, output_parquet: str) -> None:
     """convert arff file to parquet"""
@@ -94,7 +127,7 @@ def validate_data_with_schema(in_df: pd.DataFrame, schema_file: str) -> pd.DataF
     the_schema.validate(in_df)
 
 
-def preprocess(in_raw_df: pd.DataFrame) -> pd.DataFrame:
+def preprocess(in_raw_df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
     """preprocess the data, do any cleaning, feature engineering, etc"""
     out_df = in_raw_df.copy()
 
@@ -110,8 +143,10 @@ def preprocess(in_raw_df: pd.DataFrame) -> pd.DataFrame:
     out_df.Class = out_df.Class.astype(class_type)
     # create a binary column
     out_df['Target'] = out_df.Class.cat.codes
+    # gather list of features
+    features = [x for x in out_df.columns if x not in ['Class','Target']]
 
-    return out_df
+    return out_df, features
 
 
 

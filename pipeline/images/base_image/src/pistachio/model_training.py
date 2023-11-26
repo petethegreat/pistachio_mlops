@@ -1,17 +1,41 @@
 """model_training.py
 functions around training/tuning classifier
 """
-from xgboost import XGBClassifier
-from bayes_opt import BayesianOptimization
+
+import logging
+from typing import List, Dict, Callable, Tuple
+
 import numpy as np
 import pandas as pd
-from typing import List, Dict, Callable
+import sklearn 
+from xgboost import XGBClassifier
+from bayes_opt import BayesianOptimization
+from sklearn.model_selection import StratifiedKFold, cross_validate
+
+
+logger = logging.getLogger(__name__)
+
+def cross_validate_estimator(
+    train_X: pd.DataFrame,
+    train_Y: pd.DataFrame,
+    clf: sklearn.base.BaseEstimator,
+    metrics: Dict[str, Callable],
+    n_folds: int=5,
+    cv_seed:int=23,
+    n_jobs: int=2):
+    """for a given set of model parameters, use cross validation to evaluate model performance"""
+    
+    # generate cv_folds
+    cv_folds = StratifiedKFold(n_splits=n_folds, shuffle=True, random_state=cv_seed)
+    results = cross_validate(clf, train_X, train_Y, cv=cv_folds, scoring=metrics, n_jobs=n_jobs)
+
+    return results
 
 def cast_integer_params(params: Dict, integer_params: List[str]):
     """cast floats in param values to integers"""
     for x in integer_params:
-            if x in params:
-                params[x] = int(params[x])
+        if x in params:
+            params[x] = int(params[x])
     return params
 
 # metrics = {
@@ -25,7 +49,7 @@ def optimise_tune(
     train_x: pd.DataFrame,
     train_y: pd.DataFrame,
     pbounds: Dict,
-    fixed_parameters: Dict,
+    fixed_parameters: Dict[str, int | float | str],
     integer_parameters: List[str],
     metrics: Dict[str, Callable],
     cv_seed: int,
@@ -33,7 +57,7 @@ def optimise_tune(
     opt_n_init: int=10,
     opt_n_iter: int=20,
     opt_random_seed: int=42
-):
+) -> Tuple[Dict, List[Dict]]:
     """use Bayesian optimisation to search for optimal model hyperparameters
 
     Args:
@@ -79,6 +103,7 @@ def optimise_tune(
 
         # append all the metrics to the trial result.
         trials.append( {"final_score": final_score, 'params': params, "results": agged_results})
+        logger.info(f'{len(trials)} trials done')
         return final_score
 
     optimizer = BayesianOptimization(
@@ -89,5 +114,5 @@ def optimise_tune(
 
     optimizer.maximize(init_points=opt_n_init, n_iter=opt_n_iter)
 
-    print(f"best_result: {optimizer.max}")
+    logger.info(f"best_result: {optimizer.max}")
     return optimizer.max, trials
