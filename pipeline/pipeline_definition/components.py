@@ -49,7 +49,7 @@ def load_data2(input_file_path: str,
     load_and_split_data(
         input_file_path=input_file_path,
         output_train_file_path=output_train.path,
-        output_test_file_path=output_train.path,
+        output_test_file_path=output_test.path,
         split_seed=split_seed,
         test_fraction=test_fraction,
         label_column=label_column

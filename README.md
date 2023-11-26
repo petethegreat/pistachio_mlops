@@ -56,8 +56,15 @@ components dir is redundant, container specs can be defined in python in kfp v2
  - build pipeline, push pipeline, run it.
 
 
-https://stackoverflow.com/questions/68348026/run-id-in-kubeflow-pipelines-on-vertex-ai
+<!-- https://stackoverflow.com/questions/68348026/run-id-in-kubeflow-pipelines-on-vertex-ai
 dsl.PIPELINE_JOB_ID_PLACEHOLDER
 
+https://github.com/GoogleCloudPlatform/professional-services/blob/main/examples/vertex_pipeline/components/component_base/src/train.py -->
 
-https://github.com/GoogleCloudPlatform/professional-services/blob/main/examples/vertex_pipeline/components/component_base/src/train.py
+# TODO
+ - modify metadata of datasets to contain list of features/targets, don't need to pass this around as an artifact.
+  - could hold a pointer to PSI this way also?
+ - modify paths of png files output_plot.path = output_plot.path + '.png', same with json
+
+- move components from container components to lightweight components - can specify our image as base image. still leaves image definition seperate from pipeline defnition.
+
