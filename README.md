@@ -58,3 +58,4 @@ https://stackoverflow.com/questions/68348026/run-id-in-kubeflow-pipelines-on-ver
 dsl.PIPELINE_JOB_ID_PLACEHOLDER
 
 
+https://github.com/GoogleCloudPlatform/professional-services/blob/main/examples/vertex_pipeline/components/component_base/src/train.py
