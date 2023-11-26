@@ -6,6 +6,8 @@ define pipeline from components.
 
 from kfp import dsl
 from kfp import compiler
+from kfp.registry import RegistryClient
+
 from components import load_data, validate_data
 
 import yaml
@@ -19,7 +21,9 @@ bucket_name = CONFIG.get('gcs_bucket','the_gcs_bucket')
 
 pipeline_root = f'gs://{bucket_name}/pistachio_pipeline_root/'
 pipeline_name = CONFIG.get('training_pipeline_name','the_pipeline_name')
-
+schema_file_path = f"/gcs/{bucket_name}/pipeline_resources/pistachio_schema.json"
+arff_file_path = f"/gcs/{bucket_name}/pipeline_resources/Pistachio_16_Features_Dataset.arff"
+stratify_column_name = 'Class'
 
 @dsl.pipeline(
     name='pistachio_training_pipeline',
@@ -36,12 +40,9 @@ def pistachio_training_pipeline(
         test_split_data_fraction (float): _description_
     """
     
-    arff_file_location = 'arff_file gcs_url or /gcs path'
-    stratify_column_name = 'Class'
-    schema_file_path = 'schema file path in gcs'
 
     load_data_task = load_data(
-        input_file_path=arff_file_location,
+        input_file_path=arff_file_path,
         split_seed=train_test_split_seed,
         test_fraction=test_split_data_fraction,
         label_column=stratify_column_name)
@@ -54,5 +55,19 @@ def pistachio_training_pipeline(
         input_file=load_data_task.outputs['output_test'],
         schema_file_path=schema_file_path
         )
-    
-compiler.Compiler().compile(pistachio_training_pipeline, package_path='./pipeline_artifact/pistaciho_training_pipeline.yaml')
+
+pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
+compiler.Compiler().compile(pistachio_training_pipeline, package_path=pipeline_output_path)
+
+# upload
+pipeline_registry = CONFIG.get('pipeline_registry','the_pipeline_registry')
+client = RegistryClient(host=pipeline_registry)
+
+template_name, version_name = client.upload_pipeline(
+  file_name=pipeline_output_path,
+  tags=["v1", "latest"],
+  extra_headers={"description":"pistachio pipeline artifact"})
+print(f"uploaded pipeline to registry {pipeline_registry}")
+print(f"template_name: {template_name}")
+print(f"version_name: {version_name}")
+

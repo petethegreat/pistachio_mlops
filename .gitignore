@@ -7,4 +7,4 @@
 ./pipeline/pipeline_definition/pipeline_artifact/*
 !./pipeline/pipeline_definition/pipeline_artifact/pistachio_training_pipeline_example.yaml
 ./pipeline/images/tag_and_push.sh
-./pipeline/images/test_output/
+**/test_output/

@@ -78,7 +78,7 @@ deploymentSpec:
         - --label_column
         - '{{$.inputs.parameters[''label_column'']}}'
         command:
-        - load_data.py
+        - ./load_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-validate-data:
       container:
@@ -86,7 +86,7 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''input_file''].path}}'
         - '{{$.inputs.parameters[''schema_file_path'']}}'
         command:
-        - validate_data.py
+        - ./validate_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-validate-data-2:
       container:
@@ -94,7 +94,7 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''input_file''].path}}'
         - '{{$.inputs.parameters[''schema_file_path'']}}'
         command:
-        - validate_data.py
+        - ./validate_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
 pipelineInfo:
   description: pipeline for training pistachio classifier
@@ -111,7 +111,7 @@ root:
           parameters:
             input_file_path:
               runtimeValue:
-                constant: arff_file gcs_url or /gcs path
+                constant: /gcs/pistachio_pipeline_sbx_bucket/pipeline_resources/Pistachio_16_Features_Dataset.arff
             label_column:
               runtimeValue:
                 constant: Class
@@ -137,7 +137,7 @@ root:
           parameters:
             schema_file_path:
               runtimeValue:
-                constant: schema file path in gcs
+                constant: /gcs/pistachio_pipeline_sbx_bucket/pipeline_resources/pistachio_schema.json
         taskInfo:
           name: validate-data
       validate-data-2:
@@ -156,7 +156,7 @@ root:
           parameters:
             schema_file_path:
               runtimeValue:
-                constant: schema file path in gcs
+                constant: /gcs/pistachio_pipeline_sbx_bucket/pipeline_resources/pistachio_schema.json
         taskInfo:
           name: validate-data-2
   inputDefinitions:

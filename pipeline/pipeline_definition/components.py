@@ -43,7 +43,7 @@ def load_data(
 
     return dsl.ContainerSpec(
         image=base_image_location,
-        command=['load_data.py'],
+        command=['./load_data.py'],
         args=[
             input_file_path,
             output_train.path,
@@ -78,7 +78,7 @@ def validate_data(
 
     return dsl.ContainerSpec(
         image=base_image_location,
-        command=['validate_data.py'],
+        command=['./validate_data.py'],
         args=[
             input_file.path,
             schema_file_path]
