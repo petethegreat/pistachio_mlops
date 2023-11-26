@@ -53,13 +53,14 @@ components:
           parameterType: NUMBER_INTEGER
     outputDefinitions:
       artifacts:
+        optimal_parameters_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
         tuning_results_json:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
-      parameters:
-        optimal_parameters_json:
-          parameterType: STRUCT
   comp-infer-monitoring:
     executorLabel: exec-infer-monitoring
     inputDefinitions:
@@ -179,6 +180,31 @@ components:
           artifactType:
             schemaTitle: system.Metrics
             schemaVersion: 0.0.1
+  comp-train-final-model:
+    executorLabel: exec-train-final-model
+    inputDefinitions:
+      artifacts:
+        featurelist_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: list of features to be used
+        optimal_parameters_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: parameters to use for the final model
+        preprocessed_train_data:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: preprocessed training data
+    outputDefinitions:
+      artifacts:
+        model_pickle:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
   comp-train-monitoring:
     executorLabel: exec-train-monitoring
     inputDefinitions:
@@ -229,7 +255,7 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''preprocessed_train_data''].path}}'
         - '{{$.inputs.artifacts[''featurelist_json''].path}}'
         - '{{$.outputs.artifacts[''tuning_results_json''].path}}'
-        - '{{$.outputs.parameters[''optimal_parameters_json''].output_file}}'
+        - '{{$.outputs.artifacts[''optimal_parameters_json''].path}}'
         - --cv_seed
         - '{{$.inputs.parameters[''cv_seed'']}}'
         - --cv_n_folds
@@ -328,25 +354,35 @@ deploymentSpec:
           \   # load the json content\n    with open(psi_results_json.path,'r') as\
           \ infile:\n        psi_details = json.load(infile)\n\n    # setup a string\
           \ for markdown content\n    # include a table header\n    markdown_content\
-          \ = f\"\"\"\n    # PSI results\n\n    Population Stability Index evaluation\n\
-          \n    {md_note}\n\n    | Column | Datatype | Missing Values | PSI |\n  \
-          \  |--------|----------|----------------|-----|\n    \"\"\"\n\n    # log\
-          \ psi metrics\n    for column_name in psi_details.keys():\n        the_dtype\
-          \ = psi_details[column_name].get('datatype','unknown')\n        n_missing\
-          \ = psi_details[column_name].get('eval_missing',' ')\n        psi_value\
-          \ = psi_details[column_name].get('PSI','')\n        table_content = f'|\
-          \ {column_name} | {the_dtype} | {n_missing} | {psi_value} |\\n'\n\n    \
-          \    # add to table\n        markdown_content += table_content\n\n     \
-          \   metric_name = f'{metric_prefix}_{column_name}'\n        try:\n     \
-          \       psi_metrics.log_metric(metric_name, float(psi_value))\n        \
-          \    logger.info(f'logged {metric_name} to metrics')\n        except Exception\
-          \ as e:\n            logger.warning(f'could not log {metric_name} with value\
-          \ \"{psi_value}\" ')\n\n    # write markdown content\n    output_dir = os.path.dirname(psi_markdown.path)\n\
-          \    if not os.path.exists(output_dir):\n        os.makedirs(output_dir)\n\
-          \    with open(psi_markdown.path,'w') as outfile:\n        outfile.write(markdown_content)\n\
-          \        logger.info(f'markdown written to {psi_markdown.path}')\n    logger.info('done\
-          \ psi result logging')\n\n"
+          \ = f\"# PSI results\\nPopulation Stability Index evaluation\\n\\n{md_note}\\\
+          n\\n\" + \\\n        \"| Column | Datatype | Missing Values | PSI |\\n|--------|----------|----------------|-----|\\\
+          n\"\n\n    # log psi metrics\n    for column_name in psi_details.keys():\n\
+          \        the_dtype = psi_details[column_name].get('datatype','unknown')\n\
+          \        n_missing = psi_details[column_name].get('eval_missing',' ')\n\
+          \        psi_value = psi_details[column_name].get('PSI','')\n        table_content\
+          \ = f'| {column_name} | {the_dtype} | {n_missing} | {psi_value} |\\n'\n\n\
+          \        # add to table\n        markdown_content += table_content\n\n \
+          \       metric_name = f'{metric_prefix}_{column_name}'\n        try:\n \
+          \           psi_metrics.log_metric(metric_name, float(psi_value))\n    \
+          \        logger.info(f'logged {metric_name} to metrics')\n        except\
+          \ Exception as e:\n            logger.warning(f'could not log {metric_name}\
+          \ with value \"{psi_value}\" ')\n\n    # write markdown content\n    output_dir\
+          \ = os.path.dirname(psi_markdown.path)\n    if not os.path.exists(output_dir):\n\
+          \        os.makedirs(output_dir)\n    with open(psi_markdown.path,'w') as\
+          \ outfile:\n        outfile.write(markdown_content)\n        logger.info(f'markdown\
+          \ written to {psi_markdown.path}')\n    logger.info('done psi result logging')\n\
+          \n"
         image: python:3.7
+    exec-train-final-model:
+      container:
+        args:
+        - '{{$.inputs.artifacts[''preprocessed_train_data''].path}}'
+        - '{{$.inputs.artifacts[''optimal_parameters_json''].path}}'
+        - '{{$.outputs.artifacts[''model_pickle''].path}}'
+        - '{{$.inputs.artifacts[''featurelist_json''].path}}'
+        command:
+        - ./train_model.py
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-train-monitoring:
       container:
         args:
@@ -497,6 +533,30 @@ root:
                 constant: logging PSI metrics at training time on test dataset
         taskInfo:
           name: psi-result-logging
+      train-final-model:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-train-final-model
+        dependentTasks:
+        - hyperparameter-tuning
+        - preprocess-data
+        inputs:
+          artifacts:
+            featurelist_json:
+              taskOutputArtifact:
+                outputArtifactKey: feature_list
+                producerTask: preprocess-data
+            optimal_parameters_json:
+              taskOutputArtifact:
+                outputArtifactKey: optimal_parameters_json
+                producerTask: hyperparameter-tuning
+            preprocessed_train_data:
+              taskOutputArtifact:
+                outputArtifactKey: output_file
+                producerTask: preprocess-data
+        taskInfo:
+          name: train-final-model
       train-monitoring:
         cachingOptions:
           enableCache: true

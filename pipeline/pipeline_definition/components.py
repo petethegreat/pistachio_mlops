@@ -3,7 +3,7 @@ components defined using kfp container_spec
 """
 
 from kfp import dsl
-from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics
+from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model
 from typing import List, Dict
 
 import yaml 
@@ -210,6 +210,37 @@ def hyperparameter_tuning(
         )
 #############################################################################
 
+@dsl.container_component
+def train_final_model(
+    preprocessed_train_data: Input[Dataset],
+    optimal_parameters_json: Input[Artifact],
+    model_pickle: Output[Model],
+    featurelist_json: Input[Artifact],
+    ) -> dsl.ContainerSpec:
+    """model training component
+
+    trains a model and saves it as an artifact (pickle file) based on the parameters obtained from tuning
+
+    Args:
+        preprocessed_train_data (Input[Dataset]): preprocessed training data
+        optimal_parameters_json (Input[Artifact]): parameters to use for the final model
+        model_pickle (Output[Model]): trained model artifact
+        featurelist_json (Input[Artifact]): list of features to be used
+
+    Returns:
+        dsl.ContainerSpec: containerspec defining this component
+    """
+
+    return dsl.ContainerSpec(
+        image=base_image_location,
+        command=['./train_model.py'],
+        args=[
+            preprocessed_train_data.path,
+            optimal_parameters_json.path,
+            model_pickle.path,
+            featurelist_json.path]
+        )
+#############################################################################
 @dsl.component
 def psi_result_logging(
     psi_results_json: Input[Artifact],

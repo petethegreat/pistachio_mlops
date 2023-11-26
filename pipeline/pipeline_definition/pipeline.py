@@ -9,7 +9,7 @@ from kfp import compiler
 from kfp.registry import RegistryClient
 
 from components import load_data, validate_data, preprocess_data, psi_result_logging
-from components import hyperparameter_tuning, train_monitoring, infer_monitoring
+from components import hyperparameter_tuning, train_monitoring, infer_monitoring, train_final_model
 
 import yaml
 
@@ -91,12 +91,14 @@ def pistachio_training_pipeline(
         cv_seed=tuning_cv_seed
     )
 
-    # train model task
-    # load model to model registry/artifact registry - see where the artifact ends up
+    model_train_task = train_final_model(
+        preprocessed_train_data=preprocess_train_data_task.outputs["output_file"],
+        optimal_parameters_json=hyperparameter_tune_task.outputs["optimal_parameters_json"],
+        featurelist_json=preprocess_train_data_task.outputs["feature_list"]
+    )
+
     # evaluate on train data task 
     # evaluate on test data task 
-
-    
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
 compiler.Compiler().compile(pistachio_training_pipeline, package_path=pipeline_output_path)
