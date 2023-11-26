@@ -9,12 +9,25 @@ import pickle
 import pandas as pd
 from typing import List, Dict
 import numpy as np
+import logging
 
+logger = logging.getLogger(__name__)
 
 class PSImetrics(FeatureMetric):
-    """class for computing Poppulation Stability Index
-    string columns are supported as categorical columns, but not continuous (qcut errors on them)"""
+    """PSImetrics
+    class for computing Poppulation Stability Index
+    string columns are supported as categorical columns, but not continuous (qcut errors on them)
+
+    derives from FeatureMetric
+    """
+ 
     def __init__(self, max_unique_values=20, n_bins=20):
+        """initialise object
+
+        Args:
+            max_unique_values (int, optional): maximum number of unique values in a numerical volume before it is considered as categorical. Only used when inferring how to treat columns (neither categorical_cols or continuous_cols properties are set). Defaults to 20.
+            n_bins (int, optional): number of bins used when deailing with continuous columns. Defaults to 20.
+        """
         self._categorical_cols = []
         self._continuous_cols = []
         self._max_unique_values = max_unique_values
@@ -23,29 +36,52 @@ class PSImetrics(FeatureMetric):
         self._data_metrics = {}
     
     @property 
-    def categorical_cols(self):
-        """getter for categorical cols"""
+    def categorical_cols(self) -> List[str]:
+        """getter for categorical_cols
+
+        Returns:
+            List[str]: categorical_cols
+        """
+        
         return self._categorical_cols
 
     @categorical_cols.setter 
     def categorical_cols(self, cols: List[str]):
-        """setter for categorical cols"""
+        """setter for categorical cols
+
+        Args:
+            cols (List[str]): list of categorical columns
+        """
+        
         self._categorical_cols = cols
         self._continuous_cols = list(set(self._continuous_cols) - set(cols))
 
     @property 
-    def continuous_cols(self):
-        """getter for continuous cols"""
+    def continuous_cols(self)-> List[str]:
+        """getter for continuous cols
+
+        Returns:
+            List[str]: continuous_cols
+        """
         return self._continuous_cols
 
     @continuous_cols.setter 
     def continuous_cols(self, cols: List[str]):
-        """setter for continuous cols"""
+        """setter for continuous cols
+
+        Args:
+            cols (List[str]): continuous_cols
+        """
         self._continuous_cols = cols
         self._categorical_cols = list(set(self._categorical_cols) - set(cols))
 
     def infer_columns(self, data: pd.DataFrame, ignore_cols: List[str]=None):
-        """attempt to determine categorical/continuous columns"""
+        """attempt to determine categorical/continuous columns
+
+        Args:
+            data (pd.DataFrame): input dataframe to be fit. columns in this dataframe will be analysed to determine whether they should be treated as continuous or categorical
+            ignore_cols (List[str], optional): columns to be ignored. Defaults to None.
+        """
 
         if ignore_cols:
             data=data.drop(columns=ignore_cols)
@@ -62,11 +98,19 @@ class PSImetrics(FeatureMetric):
             else:
                 self._categorical_cols.append(cc)
         
-        print("inferred column types:")
-        print(f"categorical columns: {self._categorical_cols}")
-        print(f"continuous columns: {self._continuous_cols}")
+        logger.info("inferred column types:")
+        logger.info(f"categorical columns: {self._categorical_cols}")
+        logger.info(f"continuous columns: {self._continuous_cols}")
 
-    def _fit_continuous_column(self, col: pd.Series):
+    def _fit_continuous_column(self, col: pd.Series)-> Dict[str,str]:
+        """fit properties of a continuous column
+
+        Args:
+            col (pd.Series): column to be fit
+
+        Returns:
+            Dict: Dictionary containing column properties
+        """
         # map continuous to categorical
         # missing = col.isna().sum()
         catted, bins = pd.qcut(col,self._n_bins, retbins=True, labels=False, duplicates='drop')
@@ -80,9 +124,15 @@ class PSImetrics(FeatureMetric):
         cat_result['bin_thresholds'] = bins
         return cat_result
         
-    def _fit_categorical_column(self, col: pd.Series):
-        """get properties of categorical column"""
+    def _fit_categorical_column(self, col: pd.Series)-> Dict[str,str]:
+        """fit properties of a categorical column
 
+        Args:
+            col (pd.Series): column to be fit
+
+        Returns:
+            Dict: Dictionary containing column properties
+        """
         total = len(col)
         # the_by = by if by else col
         proportions = {val: float(count/total) for val, count in zip(*np.unique(col[~col.isna()], return_counts=True))}
@@ -115,9 +165,9 @@ class PSImetrics(FeatureMetric):
         zero_count_reference = list(set(eval_proportions.keys()) - set(reference_proportions.keys()))
         zero_count_eval = list(set(reference_proportions.keys()) - set(eval_proportions.keys()))
         if zero_count_eval:
-            print(f'The following categories had zero count in evaluation data but were observed in reference data: {zero_count_eval}')
+            logger.info(f'The following categories had zero count in evaluation data but were observed in reference data: {zero_count_eval}')
         if zero_count_reference: 
-            print(f'The following categories had zero count in reference data but were observed in evaluation data: {zero_count_reference}')
+            logger.info(f'The following categories had zero count in reference data but were observed in evaluation data: {zero_count_reference}')
 
         # compute PSI
         psi = 0
@@ -129,13 +179,13 @@ class PSImetrics(FeatureMetric):
         
         # flag if missing data not expected
         if (reference_missing == 0) and (eval_missing > 0):
-            print(f'Column had no missing records in reference data, but {eval_missing} in evaluation data')
+            logger.info(f'Column had no missing records in reference data, but {eval_missing} in evaluation data')
         
         # account for missing, if applicable
         if (reference_missing > 0) or (eval_missing > 0):
             reference_miss_prop = np.max([reference_missing,self._psi_zero_bin_delta])/reference_total
             eval_miss_prop = np.max([eval_missing,self._psi_zero_bin_delta])/eval_total
-            # print(f'reference miss prop: {reference_miss_prop}, eval miss prop: {eval_miss_prop}')
+            # logger.info(f'reference miss prop: {reference_miss_prop}, eval miss prop: {eval_miss_prop}')
             psi += (reference_miss_prop - eval_miss_prop)*np.log(reference_miss_prop/eval_miss_prop)
 
         # convert to json serialisable types
@@ -186,12 +236,14 @@ class PSImetrics(FeatureMetric):
         if undefined_cols:
             raise ValueError(f'the following columns are not present in input data: {undefined_cols}')
 
-        print("analysing the following categorical columns:")
-        print('\n'.join(self._categorical_cols))
-        print("analysing the following continuous columns:")
-        print('\n'.join(self._continuous_cols))
-        print("the following columns in the data will be ignored:")
-        print('\n'.join(ignored_cols))
+        msg = f""" analysing the following categorical columns:
+        {' '.join(self._categorical_cols)}
+        analysing the following continuous columns:
+        {' '.join(self._continuous_cols)}
+        the following columns in the data will be ignored:
+        {' '.join(ignored_cols)}
+        """
+        logger.info(msg)
 
         categorical_columns = {}
         for cc in self._categorical_cols:
@@ -203,13 +255,13 @@ class PSImetrics(FeatureMetric):
             'categorical_columns': categorical_columns,
             'continuous_columns': continuous_columns
             }
-        print("fitting done!")
+        logger.info("fitting done!")
 
     def evaluate(self, eval_data, **kwargs):
         """evaluate supplied data against learned distribution"""
 
         ignored_cols = list(set(eval_data.columns) - set(self._categorical_cols + self._continuous_cols))
-        print(f'the following columns will not be evalutated: {ignored_cols}')
+        logger.info(f'the following columns will not be evalutated: {ignored_cols}')
         # loop over columns
         # categorical_columns
         results = { }
@@ -220,14 +272,14 @@ class PSImetrics(FeatureMetric):
             psi_val, details = self._evaluate_categorical_column(eval_data[col])
             psi_values.append((col, psi_val, 'categorical', eval_data.dtypes.get(col)))
             results[col] = details
-            print(f'evaluated column {col}, PSI = {psi_val}')
+            logger.info(f'evaluated column {col}, PSI = {psi_val}')
         for col in self._continuous_cols:
             if col not in eval_data.columns:
                 raise ValueError(f'Error column {col} is missing from data to be evaluated')
             psi_val, details = self._evaluate_continuous_column(eval_data[col])
             psi_values.append((col, psi_val, 'continuous', eval_data.dtypes.get(col)))
             results[col] = details
-            print(f'evaluated column {col}, PSI = {psi_val}')
+            logger.info(f'evaluated column {col}, PSI = {psi_val}')
         return psi_values, results
 
     def save(self, filepath: str):
@@ -235,13 +287,13 @@ class PSImetrics(FeatureMetric):
         with open(filepath, 'wb') as outfile:
             # pickle.dump(self.__dict__, outfile, pickle.HIGHEST_PROTOCOL)
             pickle.dump(self, outfile, pickle.HIGHEST_PROTOCOL)
-        print(f"wrote data to {filepath}")       
+        logger.info(f"wrote data to {filepath}")       
 
     @classmethod
     def load(cls, filepath: str):
         """load object from file, return result"""
         with open(filepath, 'rb') as infile:
             obj = pickle.load(infile)
-        print(f"read data from {filepath}")    
+        logger.info(f"read data from {filepath}")    
         return obj
 

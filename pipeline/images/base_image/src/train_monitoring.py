@@ -1,5 +1,5 @@
 #!/usr/bin/env python
-"""data_moniter
+"""train_monitoring
 generate data data profile at train time, to be used when monitering data during inference
 
 """
@@ -7,7 +7,7 @@ generate data data profile at train time, to be used when monitering data during
 from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file
 from pistachio.psi_metrics import PSImetrics
-
+import os
 
 import logging
 import sys
@@ -38,13 +38,9 @@ def fit_psi(train_data_path: str, output_psi_path: str) -> None:
         os.makedirs(output_dir)
 
     psi.save(output_psi_path)
+    logger.info(f'saved psi object to {output_psi_path}')
 
-
-
-
-
-
-def main()
+def main():
     """do the things"""
     parser = ArgumentParser(
         description="record data profile at training time so that population stability index can be compited during inference"

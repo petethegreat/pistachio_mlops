@@ -7,6 +7,7 @@ DATA_DIR="$PWD/../data"
 
 ARFF_FILE='/data/Pistachio_16_Features_Dataset.arff'
 SCHEMA_FILE='/data/pistachio_schema.json'
+PSI_FILE='/data/PSI_profile.pkl'
 
 IMAGE='pistachio_base:0.0.1'
 
@@ -42,5 +43,10 @@ docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data $IMAGE \
 
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data $IMAGE \
   "./preprocess_data.py"  "$TEST_PATH"  "$PREPROC_TEST_PATH"  
+
+docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./train_monitoring.py" $IMAGE \
+  "$PREPROC_TRAIN_PATH"  "$PSI_FILE"  
+
+
 
 
