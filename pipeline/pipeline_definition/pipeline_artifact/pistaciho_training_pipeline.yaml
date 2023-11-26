@@ -452,8 +452,9 @@ deploymentSpec:
           \ in test_results['metrics'].items():\n\n        markdown_content += f'|\
           \ {k} | {v} |\\n'\n\n    markdown_content += f'\\n ## Test Set ROC curve\\\
           n\\n![Test Set ROC curve png][{test_roc_curve_plot_png.uri}]\\n\\n'\n\n\
-          \    # sliced metrics\n    # get roc curve definition\n    test_roc_curve_definition\
-          \ = [\n        test_results['roc_curve']['thresholds'],\n        test_results['roc_curve']['tpr'],\n\
+          \    # sliced metrics\n    evaluation_metrics._sliced_metrics = {}\n   \
+          \ # get roc curve definition\n    test_roc_curve_definition = [\n      \
+          \  test_results['roc_curve']['thresholds'],\n        test_results['roc_curve']['tpr'],\n\
           \        test_results['roc_curve']['fpr']]\n\n    evaluation_metrics.load_roc_readings('test',\
           \ test_roc_curve_definition)\n\n    # write markdown content\n    output_dir\
           \ = os.path.dirname(psi_markdown.path)\n    if not os.path.exists(output_dir):\n\

@@ -401,6 +401,7 @@ def evaluation_reporting(
     markdown_content += f'\n ## Test Set ROC curve\n\n![Test Set ROC curve png][{test_roc_curve_plot_png.uri}]\n\n'
     
     # sliced metrics
+    evaluation_metrics._sliced_metrics = {}
     # get roc curve definition
     test_roc_curve_definition = [
         test_results['roc_curve']['thresholds'],
