@@ -41,7 +41,7 @@ https://www.kubeflow.org/docs/components/pipelines/v1/sdk/component-development/
 test load_data
 ```docker run  -v ./pipeline/data:/data pistachio_base:0.0.1 load_data.py /data/Pistachio_16_Features_Dataset.arff /data/pistachio_imagetest_train.pqt /data/pistachio_imagetest_test.pqt```
 
-test validate data
+test validate_data
 ```docker run  -v ./pipeline/data:/data pistachio_base:0.0.1 validate_data.py /data/pistachio_imagetest_train.pqt /data/pistachio_schema.json```
 
 
