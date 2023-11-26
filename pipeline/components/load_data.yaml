@@ -1,0 +1,28 @@
+name: load_data
+description: loads pistachio data from arff file, write train and test datasets
+
+inputs:
+  - {name: input_file, type: String}
+  - {name: split_seed, type: Integer, default: '37', description: 'random seed for train/test split'}
+  - {name: test_fraction, type: Float, default: '0.2', description: 'fraction of data to use for test set'}
+  - {name: label_column, type: String, default: 'Class', description: 'label column used to stratify data'}
+
+outputs:
+  - {name: output_train_file, type: String}
+  - {name: output_test_file, type: String}
+
+implementation: 
+  container: 
+    image: {{ARTIFACT_REGISTRY_URI}}/{{BASE_IMAGE_SHA}}
+    # container entrypoint is python
+    command: 
+      - load_data.py
+      - {inputPath: input_file}
+      - {outputPath: output_train_file}
+      - {outputPath: output_test_file}
+      - --split_seed 
+      - {inputValue: split_seed}
+      - --test_fraction 
+      - {inputValue: test_fraction}
+      - --label_column 
+      - {inputValue: label_column}

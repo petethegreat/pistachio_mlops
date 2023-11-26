@@ -1,0 +1,16 @@
+name: validate_data
+description: runs validation on data as defined by pandera json
+
+inputs:
+  - {name: input_file_path, type: String, description: path to input data to be validated}
+  - {name: schema_file_path, type: String, description: path to schema definition to be used for validation}
+
+implementation: 
+  container: 
+    image: '{{ARTIFACT_REGISTRY_URI}}/{{BASE_IMAGE_SHA}}'
+    # container entrypoint is python
+    command: 
+      - validate_data.py
+      - {inputPath: input_file_path}
+      - {inputPath: schema_file_path}
+      
