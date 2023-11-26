@@ -10,7 +10,7 @@ from kfp.registry import RegistryClient
 
 from components import load_data, validate_data, preprocess_data, psi_result_logging
 from components import hyperparameter_tuning, train_monitoring, infer_monitoring, train_final_model
-from components import evaluate_trained_model
+from components import evaluate_trained_model, evaluation_reporting
 
 
 import yaml
@@ -22,7 +22,7 @@ with open(CONFIG_FILE_PATH,'r') as config_file:
 
 bucket_name = CONFIG.get('gcs_bucket','the_gcs_bucket')
 
-pipeline_root = f'gs://{bucket_name}/pistachio_pipeline_root/'
+pipeline_root = f'gs://{bucket_name}/pistachio_pipeline_root'
 pipeline_name = CONFIG.get('training_pipeline_name','the_pipeline_name')
 schema_file_path = f"/gcs/{bucket_name}/pipeline_resources/pistachio_schema.json"
 arff_file_path = f"/gcs/{bucket_name}/pipeline_resources/Pistachio_16_Features_Dataset.arff"
@@ -117,6 +117,14 @@ def pistachio_training_pipeline(
         dataset_desc='Test Data'
     )
     # evaluate on test data task 
+
+    # log evaluation results to vertex ai
+    log_evaluation_results_task = evaluation_reporting(
+        train_evalution_results_json=evaluate_on_train_task.outputs['metric_results_json'],
+        test_evaluation_results_json=evaluate_on_test_task.outputs['metric_results_json'],
+        feature_importance_plot_png=evaluate_on_train_task.outputs['feature_importance_plot_png'],
+        test_roc_curve_plot_png=evaluate_on_test_task.outputs['roc_curve_plot_png']
+    )
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
 compiler.Compiler().compile(pistachio_training_pipeline, package_path=pipeline_output_path)

@@ -3,7 +3,7 @@ components defined using kfp container_spec
 """
 
 from kfp import dsl
-from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model
+from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model, SlicedClassificationMetrics
 from typing import List, Dict
 
 import yaml 
@@ -250,6 +250,7 @@ def evaluate_trained_model(
     featurelist_json: Input[Artifact],
     metric_results_json: Output[Artifact],
     feature_importance_plot_png: Output[Artifact],
+    roc_curve_plot_png: Output[Artifact],
     metric_prefix: str='metric_',
     dataset_desc: str='dataset'
     ) -> dsl.ContainerSpec:
@@ -261,6 +262,7 @@ def evaluate_trained_model(
         featurelist_json (Input[Artifact]): list of features
         metric_results_json (Output[Artifact]): location where evaluation metrics will be written (as json)
         feature_importance_plot_png (Output[Artifact]): path where feature importance plot will be written as png
+        roc_curve_plot_png (Output[Artifact]): path where roc curve plot will be written as png
         metric_prefix (str, optional): string added as a prefix to metric keys. Defaults to 'metric_'.
         dataset_desc (str, optional): dataset description, used in plot titles. Defaults to 'dataset'.
 
@@ -277,6 +279,7 @@ def evaluate_trained_model(
             featurelist_json.path,
             metric_results_json.path,
             feature_importance_plot_png.path,
+            roc_curve_plot_png.path,
             "--metric_prefix",
             metric_prefix,
             "--dataset_desc",
@@ -338,6 +341,74 @@ def psi_result_logging(
         except Exception as e:
             logger.warning(f'could not log {metric_name} with value "{psi_value}" ')
         
+    # write markdown content
+    output_dir = os.path.dirname(psi_markdown.path)
+    if not os.path.exists(output_dir):
+        os.makedirs(output_dir)
+    with open(psi_markdown.path,'w') as outfile:
+        outfile.write(markdown_content)
+        logger.info(f'markdown written to {psi_markdown.path}')
+    logger.info('done psi result logging')
+#############################################################################
+
+#############################################################################
+@dsl.component(base_image='python:3.11')
+def evaluation_reporting(
+    train_evalution_results_json: Input[Artifact],
+    test_evaluation_results_json: Input[Artifact],
+    feature_importance_plot_png: Input[Artifact],
+    test_roc_curve_plot_png: Input[Artifact],
+    evaluation_markdown: Output[Markdown],
+    evaluation_metrics: Output[SlicedClassificationMetrics]
+    ):
+    """evaluation_reporting
+        Generate markdown output and log metrics from json files containing evaluation results
+
+
+    Args:
+        train_evalution_results_json (Input[Artifact]): _description_
+        test_evaluation_results_json (Input[Artifact]): _description_
+        feaure_importance_plot_png (Input[Artifact]): _description_
+        evaluation_markdown (Output[Markdown]): _description_
+        evaluation_metrics (Output[SlicedClassificationMetrics]): _description_
+    """
+    
+    import json
+    import os
+    import logging
+    import sys
+
+    logger = logging.getLogger('pistachio.evaluation_reporting')
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+
+    # load the json content
+    with open(test_evaluation_results_json.path,'r') as infile:
+        test_results = json.load(infile)
+    
+    # setup a string for markdown content
+    # include a table header
+    markdown_content = f"# Pistachio Classifier Evaluation Results\n\n## Feature Importance\n\n![Feature Importance png][{feature_importance_plot_png.uri}]\n\n"
+    # Population Stability Index evaluation\n\n{md_note}\n\n" + \
+    #     "| Column | Datatype | Missing Values | PSI |\n|--------|----------|----------------|-----|\n"
+    markdown_content += '## Test Set Metrics\n\n| *Metric* | *Value* |\n|--------|--------|\n'
+
+    # test result metrics
+    for k,v in test_results['metrics'].items():
+
+        markdown_content += f'| {k} | {v} |\n'
+
+    markdown_content += f'\n ## Test Set ROC curve\n\n![Test Set ROC curve png][{test_roc_curve_plot_png.uri}]\n\n'
+    
+    # sliced metrics
+    # get roc curve definition
+    test_roc_curve_definition = [
+        test_results['roc_curve']['thresholds'],
+        test_results['roc_curve']['tpr'],
+        test_results['roc_curve']['fpr']]
+    
+    evaluation_metrics.log_roc_readings('test', test_roc_curve_definition)
+    
     # write markdown content
     output_dir = os.path.dirname(psi_markdown.path)
     if not os.path.exists(output_dir):

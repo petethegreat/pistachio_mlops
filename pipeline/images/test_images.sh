@@ -29,9 +29,11 @@ TUNING_RESULTS_PATH="/test_output/tuning/tuning_details.json"
 MODEL_ARTIFACT_PATH="/test_output/model_training/model.pkl"
 
 EVALUATE_TRAIN_FI_PLOT_PATH="/test_output/train_evaluation/feature_importance.png"
+EVALUATE_TRAIN_ROC_PLOT_PATH="/test_output/train_evaluation/ROC_curve.png"
 EVALUATE_TRAIN_METRICS_PATH="/test_output/train_evaluation/metrics.json"
 
 EVALUATE_TEST_FI_PLOT_PATH="/test_output/test_evaluation/feature_importance.png"
+EVALUATE_TEST_ROC_PLOT_PATH="/test_output/test_evaluation/ROC_curve.png"
 EVALUATE_TEST_METRICS_PATH="/test_output/test_evaluation/metrics.json"
 
 if [ -d $TEST_DIR ]
@@ -88,12 +90,12 @@ docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./tra
 
 echo "running model evaluation on train data"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./evaluate_model.py" $IMAGE \
-  "$PREPROC_TRAIN_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TRAIN_METRICS_PATH" "$EVALUATE_TRAIN_FI_PLOT_PATH" "--metric_prefix" "train_metrics_"
+  "$PREPROC_TRAIN_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TRAIN_METRICS_PATH" "$EVALUATE_TRAIN_FI_PLOT_PATH" "$EVALUATE_TRAIN_ROC_PLOT_PATH" "--metric_prefix" "train_metrics_"
 
 echo "running model evaluation on test data"
 docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint "./evaluate_model.py" $IMAGE \
-  "$PREPROC_TEST_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TEST_METRICS_PATH" "$EVALUATE_TEST_FI_PLOT_PATH" "--metric_prefix" "test_metrics_"
+  "$PREPROC_TEST_PATH"  "$MODEL_ARTIFACT_PATH" "$FEATURE_LIST_PATH" "$EVALUATE_TEST_METRICS_PATH" "$EVALUATE_TEST_FI_PLOT_PATH" "$EVALUATE_TEST_ROC_PLOT_PATH" "--metric_prefix" "test_metrics_"
 
 
-echo "running model evaluation on test data"
-docker run --rm -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint /bin/bash $IMAGE 
+# echo "running model evaluation on test data"
+# docker run --rm  -it -v $TEST_DIR:/test_output -v $DATA_DIR:/data --entrypoint /bin/bash $IMAGE 

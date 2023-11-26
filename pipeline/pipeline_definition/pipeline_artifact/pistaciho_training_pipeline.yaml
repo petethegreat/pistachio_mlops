@@ -49,6 +49,10 @@ components:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
+        roc_curve_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
   comp-evaluate-trained-model-2:
     executorLabel: exec-evaluate-trained-model-2
     inputDefinitions:
@@ -88,6 +92,42 @@ components:
         metric_results_json:
           artifactType:
             schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        roc_curve_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+  comp-evaluation-reporting:
+    executorLabel: exec-evaluation-reporting
+    inputDefinitions:
+      artifacts:
+        feature_importance_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        test_evaluation_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: _description_
+        test_roc_curve_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        train_evalution_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+          description: _description_
+    outputDefinitions:
+      artifacts:
+        evaluation_markdown:
+          artifactType:
+            schemaTitle: system.Markdown
+            schemaVersion: 0.0.1
+        evaluation_metrics:
+          artifactType:
+            schemaTitle: system.SlicedClassificationMetrics
             schemaVersion: 0.0.1
   comp-hyperparameter-tuning:
     executorLabel: exec-hyperparameter-tuning
@@ -326,7 +366,7 @@ components:
         schema_file_path:
           description: pandera schema file to use for validation
           parameterType: STRING
-defaultPipelineRoot: gs://pistachio_pipeline_sbx_bucket/pistachio_pipeline_root/
+defaultPipelineRoot: gs://pistachio_pipeline_sbx_bucket/pistachio_pipeline_root
 deploymentSpec:
   executors:
     exec-evaluate-trained-model:
@@ -337,6 +377,7 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''featurelist_json''].path}}'
         - '{{$.outputs.artifacts[''metric_results_json''].path}}'
         - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
+        - '{{$.outputs.artifacts[''roc_curve_plot_png''].path}}'
         - --metric_prefix
         - '{{$.inputs.parameters[''metric_prefix'']}}'
         - --dataset_desc
@@ -352,6 +393,7 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''featurelist_json''].path}}'
         - '{{$.outputs.artifacts[''metric_results_json''].path}}'
         - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
+        - '{{$.outputs.artifacts[''roc_curve_plot_png''].path}}'
         - --metric_prefix
         - '{{$.inputs.parameters[''metric_prefix'']}}'
         - --dataset_desc
@@ -359,6 +401,67 @@ deploymentSpec:
         command:
         - ./evaluate_model.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-evaluation-reporting:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluation_reporting
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluation_reporting(\n    train_evalution_results_json: Input[Artifact],\n\
+          \    test_evaluation_results_json: Input[Artifact],\n    feature_importance_plot_png:\
+          \ Input[Artifact],\n    test_roc_curve_plot_png: Input[Artifact],\n    evaluation_markdown:\
+          \ Output[Markdown],\n    evaluation_metrics: Output[SlicedClassificationMetrics]\n\
+          \    ):\n    \"\"\"evaluation_reporting\n        Generate markdown output\
+          \ and log metrics from json files containing evaluation results\n\n\n  \
+          \  Args:\n        train_evalution_results_json (Input[Artifact]): _description_\n\
+          \        test_evaluation_results_json (Input[Artifact]): _description_\n\
+          \        feaure_importance_plot_png (Input[Artifact]): _description_\n \
+          \       evaluation_markdown (Output[Markdown]): _description_\n        evaluation_metrics\
+          \ (Output[SlicedClassificationMetrics]): _description_\n    \"\"\"\n\n \
+          \   import json\n    import os\n    import logging\n    import sys\n\n \
+          \   logger = logging.getLogger('pistachio.evaluation_reporting')\n    logging.basicConfig(stream=sys.stdout,\
+          \ level=logging.DEBUG)\n\n\n    # load the json content\n    with open(test_evaluation_results_json.path,'r')\
+          \ as infile:\n        test_results = json.load(infile)\n\n    # setup a\
+          \ string for markdown content\n    # include a table header\n    markdown_content\
+          \ = f\"# Pistachio Classifier Evaluation Results\\n\\n## Feature Importance\\\
+          n\\n![Feature Importance png][{feature_importance_plot_png.uri}]\\n\\n\"\
+          \n    # Population Stability Index evaluation\\n\\n{md_note}\\n\\n\" + \\\
+          \n    #     \"| Column | Datatype | Missing Values | PSI |\\n|--------|----------|----------------|-----|\\\
+          n\"\n    markdown_content += '## Test Set Metrics\\n\\n| *Metric* | *Value*\
+          \ |\\n|--------|--------|\\n'\n\n    # test result metrics\n    for k,v\
+          \ in test_results['metrics'].items():\n\n        markdown_content += f'|\
+          \ {k} | {v} |\\n'\n\n    markdown_content += f'\\n ## Test Set ROC curve\\\
+          n\\n![Test Set ROC curve png][{test_roc_curve_plot_png.uri}]\\n\\n'\n\n\
+          \    # sliced metrics\n    # get roc curve definition\n    test_roc_curve_definition\
+          \ = [\n        test_results['roc_curve']['thresholds'],\n        test_results['roc_curve']['tpr'],\n\
+          \        test_results['roc_curve']['fpr']]\n\n    evaluation_metrics.log_roc_readings('test',\
+          \ test_roc_curve_definition)\n\n    # write markdown content\n    output_dir\
+          \ = os.path.dirname(psi_markdown.path)\n    if not os.path.exists(output_dir):\n\
+          \        os.makedirs(output_dir)\n    with open(psi_markdown.path,'w') as\
+          \ outfile:\n        outfile.write(markdown_content)\n        logger.info(f'markdown\
+          \ written to {psi_markdown.path}')\n    logger.info('done psi result logging')\n\
+          \n"
+        image: python:3.11
     exec-hyperparameter-tuning:
       container:
         args:
@@ -591,6 +694,34 @@ root:
                 constant: test_metrics
         taskInfo:
           name: evaluate-trained-model-2
+      evaluation-reporting:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-evaluation-reporting
+        dependentTasks:
+        - evaluate-trained-model
+        - evaluate-trained-model-2
+        inputs:
+          artifacts:
+            feature_importance_plot_png:
+              taskOutputArtifact:
+                outputArtifactKey: feature_importance_plot_png
+                producerTask: evaluate-trained-model
+            test_evaluation_results_json:
+              taskOutputArtifact:
+                outputArtifactKey: metric_results_json
+                producerTask: evaluate-trained-model-2
+            test_roc_curve_plot_png:
+              taskOutputArtifact:
+                outputArtifactKey: roc_curve_plot_png
+                producerTask: evaluate-trained-model-2
+            train_evalution_results_json:
+              taskOutputArtifact:
+                outputArtifactKey: metric_results_json
+                producerTask: evaluate-trained-model
+        taskInfo:
+          name: evaluation-reporting
       hyperparameter-tuning:
         cachingOptions:
           enableCache: true

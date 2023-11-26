@@ -7,12 +7,14 @@ import pickle
 
 from typing import List, Dict, Callable, Tuple
 
-from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score, accuracy_score
+from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_score, accuracy_score, roc_curve
 
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib as mpl
 import numpy as np
+
+
 
 from xgboost import XGBClassifier
 
@@ -26,6 +28,46 @@ def get_evaluation_metrics(predicted_probs, predicted_classes, actual_classes, p
     results[f"{prefix}f1_score"] = f1_score(actual_classes, predicted_classes)
     results[f"{prefix}accuracy_score"] = accuracy_score(actual_classes, predicted_classes)
     return results
+
+def get_roc_results(predicted_probs: List[float], actual_classes: List[float]) -> Tuple[List[float],List[float],List[float]]:
+    """get roc curve definition
+
+    Args:
+        predicted_probs (List[float]): predicted probabilities
+        actual_classes (List[float]): actual binary labels
+
+    Returns:
+        Tuple[List,List,List]: fpr, tpr, thresholds
+    """
+    fpr, tpr, thresholds = roc_curve(actual_classes, predicted_probs)
+    return fpr, tpr, thresholds
+
+#################################################################
+
+def plot_roc_curve(fpr, tpr, thresholds, title: str="ROC curve", xlabel='False Positive Rate', ylabel: str='True Positive Rate') -> Tuple[mpl.figure.Figure, mpl.axes.Axes]:
+    """_summary_
+
+    Args:
+        fpr (_type_): _description_
+        tpr (_type_): _description_
+        thresholds (_type_): _description_
+        title (str, optional): _description_. Defaults to "ROC curve".
+        xlabel (str, optional): _description_. Defaults to 'False Positive Rate'.
+        ylabel (str, optional): _description_. Defaults to 'True Positive Rate'.
+
+    Returns:
+        Tuple[mpl.Figure, mpl.Axis]: _description_
+    """
+    fig = plt.figure()
+    ax = fig.add_axes([0.1,0.1,0.8,0.8])
+    ax.plot(fpr, tpr, color=sns.xkcd_rgb['blurple'], label='roc curve')
+    ax.plot([0.0, 1.0],[0.0, 1.0], color=sns.xkcd_rgb['merlot'], linestyle='--', label='random')
+    ax.set_xlabel(xlabel)
+    ax.set_ylabel(ylabel)
+    ax.set_title(title)
+    ax.legend()
+    # fig.show()
+    return fig, ax
 #################################################################
 
 def plot_feature_importances(model: XGBClassifier, title: str = 'feature importances'):
