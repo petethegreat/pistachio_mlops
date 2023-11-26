@@ -9,6 +9,7 @@ import numpy as np
 from sklearn.model_selection import train_test_split
 
 from pandera import DataFrameSchema
+from pandas.api.types import CategoricalDtype
 
 logger = logging.getLogger(__name__)
 
@@ -89,7 +90,24 @@ def validate_data_with_schema(in_df: pd.DataFrame, schema_file: str) -> pd.DataF
     the_schema.validate(in_df)
 
     
-    
+def preprocess(in_raw_df: pd.DataFrame) -> pd.DataFrame:
+    """preprocess the data, do any cleaning, feature engineering, etc"""
+    out_df = in_raw_df.copy()
+
+    #cross some features
+    out_df['SOLIDITY_MAJOR'] = out_df.SOLIDITY*out_df.MAJOR_AXIS
+
+    # reorder
+    cols = [x for x in out_df.columns if x != 'Class']
+    out_df = out_df[cols + ['Class']]
+
+    # convert Class to categorical
+    class_type = CategoricalDtype(categories=['Siit_Pistachio', 'Kirmizi_Pistachio'])
+    out_df.Class = out_df.Class.astype(class_type)
+    # create a binary column
+    out_df['Target'] = out_df.Class.cat.codes
+
+    return out_df
     # summary = in_df.describe(include='all')
     # # check for entirely missing columns
     # entirely_missing = [x for x in in_df.columns if summary.loc['count', x] == 0]

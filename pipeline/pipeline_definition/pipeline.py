@@ -58,16 +58,18 @@ def pistachio_training_pipeline(
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
 compiler.Compiler().compile(pistachio_training_pipeline, package_path=pipeline_output_path)
-
+print(f"pipeline compiled: {pipeline_output_path}")
 # upload
-pipeline_registry = CONFIG.get('pipeline_registry','the_pipeline_registry')
-client = RegistryClient(host=pipeline_registry)
+pipeline_registry = CONFIG.get('pipeline_registry')
+if pipeline_registry:
+        
+    client = RegistryClient(host=pipeline_registry)
 
-template_name, version_name = client.upload_pipeline(
-  file_name=pipeline_output_path,
-  tags=["v1", "latest"],
-  extra_headers={"description":"pistachio pipeline artifact"})
-print(f"uploaded pipeline to registry {pipeline_registry}")
-print(f"template_name: {template_name}")
-print(f"version_name: {version_name}")
+    template_name, version_name = client.upload_pipeline(
+    file_name=pipeline_output_path,
+    tags=["v1", "latest"],
+    extra_headers={"description":"pistachio pipeline artifact"})
+    print(f"uploaded pipeline to registry {pipeline_registry}")
+    print(f"template_name: {template_name}")
+    print(f"version_name: {version_name}")
 
