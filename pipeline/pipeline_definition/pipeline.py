@@ -9,6 +9,7 @@ from kfp import compiler
 from kfp.registry import RegistryClient
 
 from components import load_data, validate_data, preprocess_data
+from components import hyperparameter_tuning, train_monitoring, infer_monitoring
 
 import yaml
 
@@ -31,7 +32,9 @@ stratify_column_name = 'Class'
     pipeline_root=pipeline_root)
 def pistachio_training_pipeline(
     train_test_split_seed: int=37,
-    test_split_data_fraction: float=0.2
+    test_split_data_fraction: float=0.2,
+    tuning_cv_seed: int=73,
+    tuning_opt_n_iter: int=200
     ):
     """training pipeline
 
@@ -61,17 +64,30 @@ def pistachio_training_pipeline(
         input_file=load_data_task.outputs['output_train'])\
         .after(validate_train_data_task)\
         .set_display_name('preprocess train data')
-
+    
+    train_monitoring_task = train_monitoring(
+        preprocess_train_data_task.outputs["output_file"]
+    ).set_display_name('compute monitoring statistics')
 
     preprocess_test_data_task = preprocess_data(
         input_file=load_data_task.outputs['output_test'])\
         .after(validate_test_data_task)\
         .set_display_name('preprocess test data')
+    
+    infer_monitor_task = infer_monitoring(
+        inference_data=preprocess_test_data_task.outputs["output_file"],
+        psi_artifact=train_monitoring_task.outputs["psi_artifact"])\
+        .set_display_name('test data PSI monitoring')
+    
+    hyperparameter_tune_task = hyperparameter_tuning(
+        preprocessed_train_data=preprocess_train_data_task.outputs["output_file"],
+        featurelist_json=preprocess_train_data_task.outputs["feature_list"],
+        opt_n_iter=tuning_opt_n_iter,
+        cv_seed=tuning_cv_seed
+    )
+    
+def psi_result_logging(
 
-
-    #TODO - handle psi_values as metadata
-    # - do this in pipeline code. have a small component to read the detail json and create artifacts 
-    # of typekfp.dsl.Metric  and/or kfp.dsl.MarkDown
 
     
 

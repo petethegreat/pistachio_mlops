@@ -117,6 +117,11 @@ def main():
 
 
     parser.add_argument('--cv_seed', type=int, default=29)
+    parser.add_argument('--cv_n_folds', type=int, default=5)
+    parser.add_argument('--opt_n_init', type=int, default=10)
+    parser.add_argument('--opt_n_iter', type=int, default=50)
+    parser.add_argument('--opt_random_seed', type=int, default=37)
+
 
     parser.add_argument('--learning_rate', nargs=2, type=float, default=(0.01, 0.3)) #metavar=('learning_rate_low', 'learning_rate_high')
     parser.add_argument('--gamma', nargs=2, type=float, default=(0.0, 0.3)) # metavar=('gamma_low', 'gamma_high')
@@ -151,11 +156,11 @@ def main():
         args.tuning_results_json,
         args.optimal_parameters_json,
         pbounds,
-        args.cv_seed
-        # args.n_folds, # just stick with defaults above for these things
-        # args.opt_n_init,
-        # args.opt_n_iter,
-        # args.opt_random_seed
+        cv_seed=args.cv_seed,
+        n_folds=args.cv_n_folds,
+        opt_n_init=args.opt_n_init,
+        opt_n_iter=args.opt_n_iter,
+        opt_random_seed=args.opt_random_seed
         )
 
 

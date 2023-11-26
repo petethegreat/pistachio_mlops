@@ -3,7 +3,7 @@ components defined using kfp container_spec
 """
 
 from kfp import dsl
-from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact
+from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics
 
 import yaml 
 
@@ -85,33 +85,133 @@ def validate_data(
 @dsl.container_component
 def preprocess_data(
     input_file: Input[Dataset],
-    output_file: Output[Dataset]
+    output_file: Output[Dataset],
+    feature_list: Output[Artifact]
     ) -> dsl.ContainerSpec:
     """preprocess_data component
 
-    preprocesses data (feature engineering, data transformation)
-
     Args:
-        input_file (Input(Dataset)): path to raw data to be preprocessed
-        output_file (Output(Dataset)): path where preprocessed data will be written 
+        input_file (Input[Dataset]): path to raw data to be preprocessed
+        output_file (Output[Dataset]): path where preprocessed data will be written 
+        feature_list (Output[Artifact]): path to where list of feature columns will be written as json
+
     Returns:
         dsl.ContainerSpec: container component definition
-    """
-    
+    """    
 
     return dsl.ContainerSpec(
         image=base_image_location,
         command=['./preprocess_data.py'],
         args=[
             input_file.path,
-            output_file.path]
+            output_file.path,
+            feature_list.path]
+        )
+#############################################################################
+
+@dsl.container_component
+def train_monitoring(
+    train_data: Input[Dataset],
+    psi_artifact: Output[Artifact]
+    ) -> dsl.ContainerSpec:
+    """train_monitoring component
+
+    Args:
+        train_data (Input[Dataset]): preprocessed training data
+        psi_artifact (Output[Artifact]): PSI artifact containing trained PSIMetrics object
+
+    Returns:
+        dsl.ContainerSpec: container component definition
+    """
+
+    return dsl.ContainerSpec(
+        image=base_image_location,
+        command=['./train_monitoring.py'],
+        args=[
+            train_data.path,
+            psi_artifact.path,
+            ]
+        )
+#############################################################################
+
+@dsl.container_component
+def infer_monitoring(
+    inference_data: Input[Dataset],
+    psi_artifact: Input[Artifact],
+    psi_results_json: Output[Artifact]
+    ) -> dsl.ContainerSpec:
+    """inference monitoring component
+    check for data drift when running inference
+
+    Args:
+        inference_data (Input[Dataset]): Dataset to be used for model inference
+        psi_artifact (Input[Artifact]): PSI object containing statistics computed at training time
+        psi_results_json (Output[Artifact]): PSI results as json file
+
+    Returns:
+        dsl.ContainerSpec: _description_
+    """
+   
+    return dsl.ContainerSpec(
+        image=base_image_location,
+        command=['./infer_monitor.py'],
+        args=[
+            inference_data.path,
+            psi_artifact.path,
+            psi_results_json.path]
+        )
+#############################################################################
+
+@dsl.container_component
+def hyperparameter_tuning(
+    preprocessed_train_data: Input[Dataset],
+    featurelist_json: Input[Artifact],
+    tuning_results_json: Output[Artifact],
+    optimal_parameters_json: Output[Artifact],
+    cv_seed: int=43,
+    cv_n_folds: int=5,
+    opt_n_init: int=10,
+    opt_n_iter: int=200,
+    opt_random_seed: int=73
+    ) -> dsl.ContainerSpec:
+    """hyperparameter tuning component
+    tunes an CGB classifier using bayesopt to search hyperparameter space
+
+    Args:
+        preprocessed_train_data (Input[Dataset]): path to preprocessed training dataset (parquet)
+        featurelist_json (Input[Artifact]): path to list of features (json)
+        tuning_results_json (Output[Artifact]): output path for tuning results/details (json)
+        optimal_parameters_json (Output[Artifact]): output path to best parameter set found (json)
+        cv_seed (int, optional): seed used for splitting fold definition in cross validation. Defaults to 43.
+        cv_n_folds (int, optional): number of folds for cross validation. Defaults to 5.
+        opt_n_init (int, optional): number of initial (random) trials, prior to optimised searching. Defaults to 10.
+        opt_n_iter (int, optional): number of search trials to run. Defaults to 200.
+        opt_random_seed (int, optional): random seed to be used during search process. Defaults to 73.
+
+    Returns:
+        dsl.ContainerSpec: containerspec for this component
+    """
+
+    return dsl.ContainerSpec(
+        image=base_image_location,
+        command=['./model_tuning.py'],
+        args=[
+            preprocessed_train_data.path,
+            featurelist_json.path,
+            tuning_results_json.path,
+            optimal_parameters_json.path,
+            "--cv_seed", cv_seed,
+            "--cv_n_folds", cv_n_folds,
+            "--opt_n_init", opt_n_init,
+            "--opt_n_iter", opt_n_iter,
+            "--opt_random_seed", opt_random_seed]
         )
 #############################################################################
 
 @dsl.component
 def psi_result_logging(
     psi_results_json: Input[Artifact],
-    psi_markdown: Output[MarkDown],
+    psi_markdown: Output[Markdown],
     psi_metrics: Output[Metrics],
     md_note: str = '',
     metric_prefix: str = 'psi_value'
@@ -120,8 +220,10 @@ def psi_result_logging(
     Generate markdown output and log metrics from json file containing psi_results
 
     Args:
-        psi_results_json_path (Input[Artifact]): _description_
-        psi_markdown_path (Output[MarkDown]): _description_
+        psi_results_json (Input[Artifact]): Json output produced when running psi evaluation
+        psi_markdown (Output[Markdown]): output markdown content
+        psi_metrics (Output[Metrics]): output metric artifact - psi details will be logged to this
+        md_note (str): optional note/text to include in markdown
         metric_prefix (str, optional): _description_. Defaults to 'psi_value'.
 
     Returns:
