@@ -123,6 +123,7 @@ def pistachio_training_pipeline(
         train_evalution_results_json=evaluate_on_train_task.outputs['metric_results_json'],
         test_evaluation_results_json=evaluate_on_test_task.outputs['metric_results_json'],
         feature_importance_plot_png=evaluate_on_train_task.outputs['feature_importance_plot_png'],
+        train_roc_curve_plot_png=evaluate_on_train_task.outputs['roc_curve_plot_png'],
         test_roc_curve_plot_png=evaluate_on_test_task.outputs['roc_curve_plot_png']
     )
 
