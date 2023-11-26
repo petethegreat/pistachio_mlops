@@ -384,9 +384,10 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''dataset''].path}}'
         - '{{$.inputs.artifacts[''model_pickle''].path}}'
         - '{{$.inputs.artifacts[''featurelist_json''].path}}'
-        - '{{$.outputs.artifacts[''metric_results_json''].path}}'
-        - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
-        - '{{$.outputs.artifacts[''roc_curve_plot_png''].path}}'
+        - '{"Concat": ["{{$.outputs.artifacts[''metric_results_json''].path}}", ".json"]}'
+        - '{"Concat": ["{{$.outputs.artifacts[''feature_importance_plot_png''].path}}",
+          ".png"]}'
+        - '{"Concat": ["{{$.outputs.artifacts[''roc_curve_plot_png''].path}}", ".png"]}'
         - --metric_prefix
         - '{{$.inputs.parameters[''metric_prefix'']}}'
         - --dataset_desc
@@ -400,9 +401,10 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''dataset''].path}}'
         - '{{$.inputs.artifacts[''model_pickle''].path}}'
         - '{{$.inputs.artifacts[''featurelist_json''].path}}'
-        - '{{$.outputs.artifacts[''metric_results_json''].path}}'
-        - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
-        - '{{$.outputs.artifacts[''roc_curve_plot_png''].path}}'
+        - '{"Concat": ["{{$.outputs.artifacts[''metric_results_json''].path}}", ".json"]}'
+        - '{"Concat": ["{{$.outputs.artifacts[''feature_importance_plot_png''].path}}",
+          ".png"]}'
+        - '{"Concat": ["{{$.outputs.artifacts[''roc_curve_plot_png''].path}}", ".png"]}'
         - --metric_prefix
         - '{{$.inputs.parameters[''metric_prefix'']}}'
         - --dataset_desc
@@ -452,7 +454,8 @@ deploymentSpec:
           \ (Output[SlicedClassificationMetrics]): _description_\n    \"\"\"\n\n \
           \   import json\n    import os\n    import logging\n    import sys\n\n \
           \   logger = logging.getLogger('pistachio.evaluation_reporting')\n    logging.basicConfig(stream=sys.stdout,\
-          \ level=logging.DEBUG)\n\n\n    # load the json content\n    with open(test_evaluation_results_json.path,'r')\
+          \ level=logging.DEBUG)\n\n    evaluation_markdown.path = evaluation_markdown.path\
+          \ + '.md'\n\n\n    # load the json content\n    with open(test_evaluation_results_json.path,'r')\
           \ as infile:\n        test_results = json.load(infile)\n    with open(train_evaluation_results_json.path,'r')\
           \ as infile:\n        train_results = json.load(infile)\n\n    # setup a\
           \ string for markdown content\n    # include a table header\n    markdown_content\
@@ -475,16 +478,16 @@ deploymentSpec:
           \ = {}\n    # get roc curve definition\n\n    # test_roc_curve_definition\
           \ = [\n    #     test_results['roc_curve']['thresholds'],\n    #     test_results['roc_curve']['tpr'],\n\
           \    #     test_results['roc_curve']['fpr']]\n\n    # evaluation_metrics.load_roc_readings('test',\
-          \ test_roc_curve_definition)\n\n    test_evaluation_metrics.log_roc_curve(\n\
-          \        test_results['roc_curve']['fpr'],\n        test_results['roc_curve']['tpr'],\n\
-          \        test_results['roc_curve']['thresholds'])\n\n    # train_evaluation_metrics.log_roc_curve(\n\
-          \    #     train_results['roc_curve']['fpr'],\n    #     train_results['roc_curve']['tpr'],\n\
-          \    #     train_results['roc_curve']['thresholds'])\n\n    # dummy roc\
-          \ data\n    fpr = [ 0.0, 0.0, 0.0, 1.0]\n    tpr = [0.0, 0.5, 1.0, 1.0]\n\
-          \    thresholds = [sys.float_info.max, 0.99, 0.8, 0.01] # infinity is an\
-          \ issue\n    # test_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)\n\
-          \    train_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)\n\n\n\n\
-          \    # write markdown content\n    output_dir = os.path.dirname(evaluation_markdown.path)\n\
+          \ test_roc_curve_definition)\n    # hack\n    test_results['roc_curve']['thresholds'][0]\
+          \ = 1.0e9\n\n    test_evaluation_metrics.log_roc_curve(\n        test_results['roc_curve']['fpr'],\n\
+          \        test_results['roc_curve']['tpr'],\n        test_results['roc_curve']['thresholds'])\n\
+          \n    # train_evaluation_metrics.log_roc_curve(\n    #     train_results['roc_curve']['fpr'],\n\
+          \    #     train_results['roc_curve']['tpr'],\n    #     train_results['roc_curve']['thresholds'])\n\
+          \n    # dummy roc data\n    fpr = [ 0.0, 0.0, 0.0, 1.0]\n    tpr = [0.0,\
+          \ 0.5, 1.0, 1.0]\n    thresholds = [sys.float_info.max, 0.99, 0.8, 0.01]\
+          \ # infinity is an issue\n    # test_evaluation_metrics.log_roc_curve(fpr,\
+          \ tpr, thresholds)\n    train_evaluation_metrics.log_roc_curve(fpr, tpr,\
+          \ thresholds)\n\n\n\n    # write markdown content\n    output_dir = os.path.dirname(evaluation_markdown.path)\n\
           \    if not os.path.exists(output_dir):\n        os.makedirs(output_dir)\n\
           \    with open(evaluation_markdown.path,'w') as outfile:\n        outfile.write(markdown_content)\n\
           \        logger.info(f'markdown written to {evaluation_markdown.path}')\n\
@@ -523,8 +526,8 @@ deploymentSpec:
       container:
         args:
         - '{{$.inputs.parameters[''input_file_path'']}}'
-        - '{{$.outputs.artifacts[''output_train''].path}}'
-        - '{{$.outputs.artifacts[''output_test''].path}}'
+        - '{"Concat": ["{{$.outputs.artifacts[''output_train''].path}}", ".pqt"]}'
+        - '{"Concat": ["{{$.outputs.artifacts[''output_test''].path}}", ".pqt"]}'
         - --split_seed
         - '{{$.inputs.parameters[''split_seed'']}}'
         - --test_fraction
@@ -538,8 +541,8 @@ deploymentSpec:
       container:
         args:
         - '{{$.inputs.artifacts[''input_file''].path}}'
-        - '{{$.outputs.artifacts[''output_file''].path}}'
-        - '{{$.outputs.artifacts[''feature_list''].path}}'
+        - '{"Concat": ["{{$.outputs.artifacts[''output_file''].path}}", ".pqt"]}'
+        - '{"Concat": ["{{$.outputs.artifacts[''feature_list''].path}}", ".json"]}'
         command:
         - ./preprocess_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
@@ -547,8 +550,8 @@ deploymentSpec:
       container:
         args:
         - '{{$.inputs.artifacts[''input_file''].path}}'
-        - '{{$.outputs.artifacts[''output_file''].path}}'
-        - '{{$.outputs.artifacts[''feature_list''].path}}'
+        - '{"Concat": ["{{$.outputs.artifacts[''output_file''].path}}", ".pqt"]}'
+        - '{"Concat": ["{{$.outputs.artifacts[''feature_list''].path}}", ".json"]}'
         command:
         - ./preprocess_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
@@ -589,8 +592,9 @@ deploymentSpec:
           \ will be logged to this\n        md_note (str): optional note/text to include\
           \ in markdown\n        metric_prefix (str, optional): _description_. Defaults\
           \ to 'psi_value'.\n\n    Returns:\n        dsl.ContainerSpec: component\
-          \ definition\n    \"\"\"\n\n\n    import json\n    import os\n    import\
-          \ logging\n    import sys\n    logger = logging.getLogger('pistachio.psi_result_logging')\n\
+          \ definition\n    \"\"\"\n\n    psi_markdown.path = psi_markdown.path +\
+          \ '.md'\n\n    import json\n    import os\n    import logging\n    import\
+          \ sys\n    logger = logging.getLogger('pistachio.psi_result_logging')\n\
           \    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)\n\n\n \
           \   # load the json content\n    with open(psi_results_json.path,'r') as\
           \ infile:\n        psi_details = json.load(infile)\n\n    # setup a string\

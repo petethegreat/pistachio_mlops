@@ -5,7 +5,7 @@ components defined using kfp container_spec
 from kfp import dsl
 from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model, SlicedClassificationMetrics, ClassificationMetrics
 from typing import List, Dict
-
+from kfp.dsl import ConcatPlaceholder
 import yaml 
 
 CONFIG_FILE_PATH = '../config/config.yaml'
@@ -41,6 +41,9 @@ def load_data(
     Returns:
         dsl.ContainerSpec: component definition
     """
+    output_train.path = ConcatPlaceholder([output_train.path, '.pqt'])
+    output_test.path = ConcatPlaceholder([output_test.path, '.pqt'])
+
 
     return dsl.ContainerSpec(
         image=base_image_location,
@@ -58,6 +61,41 @@ def load_data(
         ]
         )
 #############################################################################
+
+@dsl.component(base_image=base_image_location)
+def load_data2(input_file_path: str,
+    output_train: Output[Dataset],
+    output_test: Output[Dataset],
+    split_seed: int=37,
+    test_fraction: float=0.2,
+    label_column: str='Class'
+    ):
+    """load_data2 component
+
+    loads data from arff file ()
+
+    Args:
+        input_file (str): path to pistachio arff file - use /gcs fuse mount
+        output_train_path (OutputPath(Dataset)): output path for train dataset (parquet)
+        output_test_path (OutputPath(Dataset)): output path for test dataset (parquet)
+        split_seed (int, optional): seed to be used for train/test splitting. Defaults to 37.
+        test_fraction (float, optional): fraction of data to be used for test split. Defaults to 0.2.
+        label_column (str, optional): column used to stratify data for splitting. Defaults to 'Class'.
+    """
+    from load_data import load_and_split_data
+
+    output_train.path = output_train.path + '.pqt'
+    output_test.path = output_test.path + '.pqt'
+
+    load_and_split_data(
+        input_file_path=input_file_path,
+        output_train_file_path=output_train.path,
+        output_test_file_path=output_train.path,
+        split_seed=split_seed,
+        test_fraction=test_fraction,
+        label_column=label_column
+    )
+
 
 @dsl.container_component
 def validate_data(
@@ -99,6 +137,9 @@ def preprocess_data(
     Returns:
         dsl.ContainerSpec: container component definition
     """    
+
+    output_file.path = ConcatPlaceholder([output_file.path, '.pqt'])
+    feature_list.path = ConcatPlaceholder([feature_list.path, '.json'])
 
     return dsl.ContainerSpec(
         image=base_image_location,
@@ -269,6 +310,10 @@ def evaluate_trained_model(
     Returns:
         dsl.ContainerSpec: _description_
     """
+
+    metric_results_json.path = ConcatPlaceholder([metric_results_json.path, '.json'])
+    feature_importance_plot_png.path = ConcatPlaceholder([feature_importance_plot_png.path, '.png'])
+    roc_curve_plot_png.path = ConcatPlaceholder([roc_curve_plot_png.path, '.png'])
  
     return dsl.ContainerSpec(
         image=base_image_location,
@@ -307,6 +352,9 @@ def psi_result_logging(
     Returns:
         dsl.ContainerSpec: component definition
     """
+    
+    psi_markdown.path = psi_markdown.path + '.md'
+    
     import json
     import os
     import logging
@@ -384,6 +432,8 @@ def evaluation_reporting(
     logger = logging.getLogger('pistachio.evaluation_reporting')
     logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
+    evaluation_markdown.path = evaluation_markdown.path + '.md'
+
 
     # load the json content
     with open(test_evaluation_results_json.path,'r') as infile:
@@ -427,6 +477,8 @@ def evaluation_reporting(
     #     test_results['roc_curve']['fpr']]
     
     # evaluation_metrics.load_roc_readings('test', test_roc_curve_definition)
+    # hack
+    test_results['roc_curve']['thresholds'][0] = 1.0e9
 
     test_evaluation_metrics.log_roc_curve(
         test_results['roc_curve']['fpr'],
