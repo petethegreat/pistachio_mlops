@@ -2,8 +2,8 @@
 # Name: pistachio-training-pipeline
 # Description: pipeline for training pistachio classifier
 # Inputs:
-#    test_split_data_fraction: float
-#    train_test_split_seed: int
+#    test_split_data_fraction: float [Default: 0.2]
+#    train_test_split_seed: int [Default: 37.0]
 components:
   comp-load-data:
     executorLabel: exec-load-data
@@ -240,10 +240,14 @@ root:
   inputDefinitions:
     parameters:
       test_split_data_fraction:
+        defaultValue: 0.2
         description: _description_
+        isOptional: true
         parameterType: NUMBER_DOUBLE
       train_test_split_seed:
+        defaultValue: 37.0
         description: _description_
+        isOptional: true
         parameterType: NUMBER_INTEGER
 schemaVersion: 2.1.0
 sdkVersion: kfp-2.3.0
