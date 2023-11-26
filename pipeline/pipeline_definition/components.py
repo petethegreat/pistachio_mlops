@@ -254,9 +254,9 @@ def psi_result_logging(
 
     # log psi metrics
     for column_name in psi_details.keys():
-        the_dtype = psi_details['column_name'].get('datatype','unknown')
-        n_missing = psi_details['column_name'].get('eval_missing',' ')
-        psi_value = psi_details['column_name'].get('PSI','')
+        the_dtype = psi_details[column_name].get('datatype','unknown')
+        n_missing = psi_details[column_name].get('eval_missing',' ')
+        psi_value = psi_details[column_name].get('PSI','')
         table_content = f'|{column_name} | {the_dtype} | {n_missing} | {psi_value} |\n'
 
         # add to table
