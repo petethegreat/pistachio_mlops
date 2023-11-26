@@ -17,3 +17,6 @@ docker run --rm  --name jupy -p 6372:8888 -v ${PWD}/notebook:/home/jovyan/work/p
 ```
 
 pandera for schema/data validation
+
+installing packages into image:
+[just use pip](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/recipes.html#using-mamba-install-recommended-or-pip-install-in-a-child-docker-image)
