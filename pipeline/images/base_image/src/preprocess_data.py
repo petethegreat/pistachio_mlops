@@ -7,7 +7,7 @@ import logging
 import sys
 
 from argparse import ArgumentParser
-from pistachio.data_handling import load_parquet_file, preprocess
+from pistachio.data_handling import load_parquet_file, preprocess, write_to_json
 from pistachio.utils import ensure_directory_exists
 from typing import List
 ## logging
@@ -32,8 +32,7 @@ def preprocess_data_features(
     logger.info('preprocessing')
     output_df, features = preprocess(input_df)
 
-    for path in [output_file_path, feature_list_path]:
-        ensure_directory_exists(path)
+    ensure_directory_exists(output_file_path)
 
     output_df.to_parquet(output_file_path)
     logger.info(f'wrote processed data to {output_file_path}')
@@ -54,21 +53,11 @@ def preprocess_data(
         output_file_path (str): path where output will be written
         feature_list_path (str): path where list of features will be written (as json)
     """
-    logger.info(f'loading data from {input_file_path}')
-
-    input_df = load_parquet_file(input_file_path)
-    logger.info('preprocessing')
-    output_df, features = preprocess(input_df)
-
-    for path in [output_file_path, feature_list_path]:
-        ensure_directory_exists(path)
-
-    output_df.to_parquet(output_file_path)
-    logger.info(f'wrote processed data to {output_file_path}')
     
-    with open(feature_list_path, 'w') as outfile:
-        json.dump(features, outfile)
-    logger.info(f'wrote feature list to {feature_list_path}')
+    ensure_directory_exists(feature_list_path)
+    features = preprocess_data_features(input_file_path, output_file_path)
+    write_to_json(features, feature_list_path)
+    logger.info(f'wrote features to {feature_list_path}')
 ########################################################
 
 def main():
