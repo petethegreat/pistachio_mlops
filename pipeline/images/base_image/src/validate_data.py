@@ -10,8 +10,10 @@ from pistachio.data_handling import load_parquet_file, validate_data_with_schema
 
 import logging
 import sys
-logger = logging.getLogger('validate_data')
 
+## logging
+logger = logging.getLogger('pistachio')
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 def setup_logging():
     """log to stdout"""
@@ -33,9 +35,7 @@ def validate_data(
         schema_file_path (str): _description_
     """
 
-
-    validate_data_with_schema(df, schema_file_path)
-   
+  
     df = load_parquet_file(input_file_path)
     logger.info(f'loaded data from {input_file_path}')
     validate_data_with_schema(df, schema_file_path)
@@ -48,13 +48,13 @@ def main():
     parser = ArgumentParser(
         description="load pistachio data from input arff file, split to train/test, write to parquet"
     )
-    parser.add_argument('input_file_path', type='str')
-    parser.add_argument('schema_file_path', type='str')
+    parser.add_argument('input_file_path', type=str)
+    parser.add_argument('schema_file_path', type=str)
 
     args = parser.parse_args()
 
     validate_data(
-        args.input_file,
+        args.input_file_path,
         args.schema_file_path,
         )
 

@@ -8,16 +8,11 @@ from pistachio.data_handling import load_arff_file, split_data
 
 import logging
 import sys
-logger = logging.getLogger('load_data')
+## logging
 
-def setup_logging():
-    """log to stdout"""
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setLevel(logging.DEBUG)
-    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-#########################################################
+logger = logging.getLogger('pistachio')
+logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
 
 def load_and_split_data(
     input_file_path: str,
@@ -50,8 +45,6 @@ def load_and_split_data(
 
 def main():
     """do the things"""
-
-    setup_logging()
 
     parser = ArgumentParser(
         description="load pistachio data from input arff file, split to train/test, write to parquet"

@@ -12,7 +12,6 @@ from pandera import DataFrameSchema
 
 logger = logging.getLogger(__name__)
 
-
 def arff_to_parquet(input_arff: str, output_parquet: str) -> None:
     """convert arff file to parquet"""
     if not os.path.exists(input_arff):
@@ -26,7 +25,7 @@ def arff_to_parquet(input_arff: str, output_parquet: str) -> None:
     logger.info(f'wrote to parquet at {output_parquet}')
 ##################
 
-def load_arff_file(input_arff: str, output_parquet: str) -> pd.DataFrame:
+def load_arff_file(input_arff: str) -> pd.DataFrame:
     """convert arff file to parquet"""
     if not os.path.exists(input_arff):
         raise ValueError(f"input file '{input_arff}' does not exist")
