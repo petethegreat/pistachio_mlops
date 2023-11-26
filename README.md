@@ -24,3 +24,26 @@ pandera for schema/data validation
 installing packages into image:
 [just use pip](https://jupyter-docker-stacks.readthedocs.io/en/latest/using/recipes.html#using-mamba-install-recommended-or-pip-install-in-a-child-docker-image)
 
+
+## Pipeline
+  - base image for all python functionality
+  - python scripts to handle arguments for each component definition
+  
+  things:
+    - some sort of config, project, storage, arifact locations, etc.
+    - build images locally and push to AR, vs cloudbuild
+    - component definitions, including image location
+
+https://www.kubeflow.org/docs/components/pipelines/v1/sdk/component-development/#creating-a-component-specification
+
+
+# todo
+ - config - project id, artifact registry locations, etc.
+ - build image
+ - generate component definitions. (script, load stuff from config.)
+ - build pipeline, push pipeline, run it.
+
+
+
+
+
