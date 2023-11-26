@@ -393,7 +393,7 @@ def evaluation_reporting(
     
     # setup a string for markdown content
     # include a table header
-    markdown_content = f"# Pistachio Classifier Evaluation Results\n\n## Feature Importance\n\n![Feature Importance png][{feature_importance_plot_png.uri}]\n\n"
+    markdown_content = f"# Pistachio Classifier Evaluation Results\n\n## Feature Importance\n\n![Feature Importance png]({feature_importance_plot_png.uri})\n\n"
     # Population Stability Index evaluation\n\n{md_note}\n\n" + \
     #     "| Column | Datatype | Missing Values | PSI |\n|--------|----------|----------------|-----|\n"
     
@@ -404,18 +404,18 @@ def evaluation_reporting(
     for k,v in train_results['metrics'].items():
         markdown_content += f'| {k} | {v} |\n'
         # try this
-        train_evaluation_metrics.metadata[k] = v
+        # train_evaluation_metrics.metadata[k] = v
 
 
-    markdown_content += f'\n ## Train Set ROC curve\n\n![Train Set ROC curve png][{train_roc_curve_plot_png.uri}]\n\n'
+    markdown_content += f'\n ## Train Set ROC curve\n\n![Train Set ROC curve png]({train_roc_curve_plot_png.uri})\n\n'
     
     markdown_content += '## Test Set Metrics\n\n| *Metric* | *Value* |\n|--------|--------|\n'
     # test result metrics
     for k,v in test_results['metrics'].items():
         markdown_content += f'| {k} | {v} |\n'
         # try this
-        test_evaluation_metrics.metadata[k] = v
-    markdown_content += f'\n ## Test Set ROC curve\n\n![Test Set ROC curve png][{test_roc_curve_plot_png.uri}]\n\n'
+        # test_evaluation_metrics.metadata[k] = v
+    markdown_content += f'\n ## Test Set ROC curve\n\n![Test Set ROC curve png]({test_roc_curve_plot_png.uri})\n\n'
     
     # sliced metrics - this is buggy at present
     # evaluation_metrics._sliced_metrics = {}
@@ -428,15 +428,23 @@ def evaluation_reporting(
     
     # evaluation_metrics.load_roc_readings('test', test_roc_curve_definition)
 
-    test_evaluation_metrics.log_roc_curve(
-        test_results['roc_curve']['fpr'],
-        test_results['roc_curve']['tpr'],
-        test_results['roc_curve']['thresholds'])
+    # test_evaluation_metrics.log_roc_curve(
+    #     test_results['roc_curve']['fpr'],
+    #     test_results['roc_curve']['tpr'],
+    #     test_results['roc_curve']['thresholds'])
     
-    train_evaluation_metrics.log_roc_curve(
-        train_results['roc_curve']['fpr'],
-        train_results['roc_curve']['tpr'],
-        train_results['roc_curve']['thresholds'])
+    # train_evaluation_metrics.log_roc_curve(
+    #     train_results['roc_curve']['fpr'],
+    #     train_results['roc_curve']['tpr'],
+    #     train_results['roc_curve']['thresholds'])
+
+    # dummy roc data
+    fpr = [ 0.0, 0.0, 0.0, 1.0]
+    tpr = [0.0, 0.5, 1.0, 1.0]
+    thresholds = [float('inf'), 0.99, 0.8, 0.01]
+    test_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)
+    train_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)
+
     
     
     # write markdown content
