@@ -5,10 +5,11 @@ components defined using kfp container_spec
 from kfp import dsl
 from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath
 
+import yaml 
 
 CONFIG_FILE_PATH = '../config/default_config.yaml'
 
-with open(config_file_path,'r') as config_file:
+with open(CONFIG_FILE_PATH,'r') as config_file:
     CONFIG = yaml.safe_load(config_file)
 
 BASE_IMAGE=f"{CONFIG['artifact_registry']}/{CONFIG['base_image_name']}"

@@ -6,6 +6,41 @@ define pipeline from components.
 
 from kfp import dsl
 from components import load_data, validate_data
+import yaml
+
+CONFIG_FILE_PATH = '../config/default_config.yaml'
+
+with open(CONFIG_FILE_PATH,'r') as config_file:
+    CONFIG = yaml.safe_load(config_file)
+
+
+@dsl.pipeline
+def training_pipeline(
+    train_test_split_seed: int,
+    test_split_data_fraction: float,
+
+) -> None:
+    
+    arff_file_location = 'arff_file gcs_url or /gcs path'
+    stratify_column_name = 'Class'
+    schema_file_path = 'schema file path in gcs'
+
+    load_data_task = load_data(
+        input_file=arff_file_location,
+        split_seed=train_test_split_seed,
+        test_fraction=test_split_data_fraction,
+        label_column=stratify_column_name)
+    
+    validate_train_data_task = validate_data(
+        input_file_path=load_data_task.Output['output_train_path'],
+        schema_file_path=schema_file_path
+        )
+    validate_test_data_task = validate_data(
+        input_file_path=load_data_task.Output['output_test_path'],
+        schema_file_path=schema_file_path
+        )
+    
+ 
 
 # kfp v2 dsl
 
