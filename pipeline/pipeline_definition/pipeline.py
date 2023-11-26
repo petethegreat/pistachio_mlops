@@ -46,12 +46,7 @@ def pistachio_training_pipeline(
         test_split_data_fraction (float): _description_
     """
     
-    # container components
-    # load_data_task = load_data(
-    #     input_file_path=arff_file_path,
-    #     split_seed=train_test_split_seed,
-    #     test_fraction=test_split_data_fraction,
-    #     label_column=stratify_column_name)
+
     
     load_data_task = load_data(
         input_file_path=arff_file_path,
@@ -91,39 +86,37 @@ def pistachio_training_pipeline(
     test_monitor_logging_task = psi_result_logging(
         psi_results_json=infer_monitor_test_task.outputs['psi_results_json'],
         md_note="""logging PSI metrics at training time on test dataset"""
-    )
-    
+    ).set_display_name('data monitoring - log results')
+
     hyperparameter_tune_task = hyperparameter_tuning(
         preprocessed_train_data=preprocess_train_data_task.outputs["output_file"],
-        featurelist_json=preprocess_train_data_task.outputs["feature_list"],
         opt_n_iter=tuning_opt_n_iter,
         cv_seed=tuning_cv_seed
-    )
+    ).set_display_name('hyperparameter tuning')
 
     model_train_task = train_final_model(
         preprocessed_train_data=preprocess_train_data_task.outputs["output_file"],
         optimal_parameters_json=hyperparameter_tune_task.outputs["optimal_parameters_json"],
-        featurelist_json=preprocess_train_data_task.outputs["feature_list"]
-    )
+    ).set_display_name('model training')
 
 
-    # evaluate on train data task 
+
+
+        # evaluate on train data task 
     evaluate_on_train_task = evaluate_trained_model(
         dataset=preprocess_train_data_task.outputs["output_file"],
         model_pickle=model_train_task.outputs['model_pickle'],
-        featurelist_json=preprocess_train_data_task.outputs["feature_list"],
         metric_prefix="train_metrics",
         dataset_desc='Training Data'
     ).set_display_name('model evaluation - training data')
+    # evaluate on test data task 
 
     evaluate_on_test_task = evaluate_trained_model(
         dataset=preprocess_test_data_task.outputs["output_file"],
         model_pickle=model_train_task.outputs['model_pickle'],
-        featurelist_json=preprocess_test_data_task.outputs["feature_list"],
         metric_prefix="test_metrics",
         dataset_desc='Test Data'
     ).set_display_name('model evaluation - test data')
-    # evaluate on test data task 
 
     # log evaluation results to vertex ai
     log_evaluation_results_task = evaluation_reporting(
@@ -132,7 +125,7 @@ def pistachio_training_pipeline(
         feature_importance_plot_png=evaluate_on_train_task.outputs['feature_importance_plot_png'],
         train_roc_curve_plot_png=evaluate_on_train_task.outputs['roc_curve_plot_png'],
         test_roc_curve_plot_png=evaluate_on_test_task.outputs['roc_curve_plot_png']
-    )
+    ).set_display_name('log evaluation results')
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
 compiler.Compiler().compile(pistachio_training_pipeline, package_path=pipeline_output_path)

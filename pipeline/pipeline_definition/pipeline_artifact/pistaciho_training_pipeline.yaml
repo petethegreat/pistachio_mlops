@@ -20,11 +20,6 @@ components:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
           description: dataset to be used for model inference
-        featurelist_json:
-          artifactType:
-            schemaTitle: system.Artifact
-            schemaVersion: 0.0.1
-          description: list of features
         model_pickle:
           artifactType:
             schemaTitle: system.Model
@@ -64,11 +59,6 @@ components:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
           description: dataset to be used for model inference
-        featurelist_json:
-          artifactType:
-            schemaTitle: system.Artifact
-            schemaVersion: 0.0.1
-          description: list of features
         model_pickle:
           artifactType:
             schemaTitle: system.Model
@@ -142,17 +132,18 @@ components:
     executorLabel: exec-hyperparameter-tuning
     inputDefinitions:
       artifacts:
-        featurelist_json:
-          artifactType:
-            schemaTitle: system.Artifact
-            schemaVersion: 0.0.1
-          description: path to list of features (json)
         preprocessed_train_data:
           artifactType:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
           description: path to preprocessed training dataset (parquet)
       parameters:
+        colsample_bytree_bounds:
+          defaultValue:
+          - 0.1
+          - 0.5
+          isOptional: true
+          parameterType: LIST
         cv_n_folds:
           defaultValue: 5.0
           description: number of folds for cross validation. Defaults to 5.
@@ -164,6 +155,30 @@ components:
             Defaults to 43.
           isOptional: true
           parameterType: NUMBER_INTEGER
+        gamma_bounds:
+          defaultValue:
+          - 0.0
+          - 0.3
+          isOptional: true
+          parameterType: LIST
+        learning_rate_bounds:
+          defaultValue:
+          - 0.01
+          - 0.3
+          isOptional: true
+          parameterType: LIST
+        max_depth_bounds:
+          defaultValue:
+          - 3.0
+          - 5.0
+          isOptional: true
+          parameterType: LIST
+        min_child_weight_bounds:
+          defaultValue:
+          - 0.01
+          - 0.07
+          isOptional: true
+          parameterType: LIST
         opt_n_init:
           defaultValue: 10.0
           description: number of initial (random) trials, prior to optimised searching.
@@ -180,6 +195,24 @@ components:
           description: random seed to be used during search process. Defaults to 73.
           isOptional: true
           parameterType: NUMBER_INTEGER
+        reg_alpha_bounds:
+          defaultValue:
+          - 0.01
+          - 0.1
+          isOptional: true
+          parameterType: LIST
+        reg_lambda_bounds:
+          defaultValue:
+          - 0.01
+          - 0.1
+          isOptional: true
+          parameterType: LIST
+        subsample_bounds:
+          defaultValue:
+          - 0.7
+          - 0.9
+          isOptional: true
+          parameterType: LIST
     outputDefinitions:
       artifacts:
         optimal_parameters_json:
@@ -210,8 +243,8 @@ components:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
-  comp-load-data2:
-    executorLabel: exec-load-data2
+  comp-load-data:
+    executorLabel: exec-load-data
     inputDefinitions:
       parameters:
         input_file_path:
@@ -255,10 +288,6 @@ components:
           description: path to raw data to be preprocessed
     outputDefinitions:
       artifacts:
-        feature_list:
-          artifactType:
-            schemaTitle: system.Artifact
-            schemaVersion: 0.0.1
         output_file:
           artifactType:
             schemaTitle: system.Dataset
@@ -274,10 +303,6 @@ components:
           description: path to raw data to be preprocessed
     outputDefinitions:
       artifacts:
-        feature_list:
-          artifactType:
-            schemaTitle: system.Artifact
-            schemaVersion: 0.0.1
         output_file:
           artifactType:
             schemaTitle: system.Dataset
@@ -316,11 +341,6 @@ components:
     executorLabel: exec-train-final-model
     inputDefinitions:
       artifacts:
-        featurelist_json:
-          artifactType:
-            schemaTitle: system.Artifact
-            schemaVersion: 0.0.1
-          description: list of features to be used
         optimal_parameters_json:
           artifactType:
             schemaTitle: system.Artifact
@@ -384,34 +404,104 @@ deploymentSpec:
     exec-evaluate-trained-model:
       container:
         args:
-        - '{{$.inputs.artifacts[''dataset''].path}}'
-        - '{{$.inputs.artifacts[''model_pickle''].path}}'
-        - '{{$.inputs.artifacts[''featurelist_json''].path}}'
-        - '{{$.outputs.artifacts[''metric_results_json''].path}}'
-        - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
-        - '{{$.outputs.artifacts[''roc_curve_plot_png''].path}}'
-        - --metric_prefix
-        - '{{$.inputs.parameters[''metric_prefix'']}}'
-        - --dataset_desc
-        - '{{$.inputs.parameters[''dataset_desc'']}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_trained_model
         command:
-        - ./evaluate_model.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_trained_model(\n    dataset: Input[Dataset],\n    model_pickle:\
+          \ Input[Model],\n    metric_results_json: Output[Artifact],\n    feature_importance_plot_png:\
+          \ Output[Artifact],\n    roc_curve_plot_png: Output[Artifact],\n    metric_prefix:\
+          \ str='metric_',\n    dataset_desc: str='dataset'\n    ) -> None:\n    \"\
+          \"\"evaluate trained model on specified dataset\n\n    Args:\n        dataset\
+          \ (Input[Dataset]): dataset to be used for model inference\n        model_pickle\
+          \ (Input[Model]): pickle file containing pistachio XGBClassifier\n     \
+          \   metric_results_json (Output[Artifact]): location where evaluation metrics\
+          \ will be written (as json)\n        feature_importance_plot_png (Output[Artifact]):\
+          \ path where feature importance plot will be written as png\n        roc_curve_plot_png\
+          \ (Output[Artifact]): path where roc curve plot will be written as png\n\
+          \        metric_prefix (str, optional): string added as a prefix to metric\
+          \ keys. Defaults to 'metric_'.\n        dataset_desc (str, optional): dataset\
+          \ description, used in plot titles. Defaults to 'dataset'.\n\n    Returns:\n\
+          \       None\n    \"\"\"\n    from evaluate_model import evaluate_model_features\n\
+          \    features = dataset.metadata['features']\n\n    metric_results_json.path\
+          \ = metric_results_json.path + '.json'\n    feature_importance_plot_png.path\
+          \ = feature_importance_plot_png.path + '.png'\n    roc_curve_plot_png.path\
+          \ = roc_curve_plot_png.path + '.png'\n\n    evaluate_model_features(\n \
+          \   dataset_path=dataset.path,\n    model_pickle_path=model_pickle.path,\n\
+          \    features=features,\n    metric_results_json=metric_results_json.path,\n\
+          \    feature_importance_plot_png=feature_importance_plot_png.path,\n   \
+          \ roc_curve_plot_png=roc_curve_plot_png.path,\n    metric_prefix=metric_prefix,\n\
+          \    dataset_desc=dataset_desc)\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-evaluate-trained-model-2:
       container:
         args:
-        - '{{$.inputs.artifacts[''dataset''].path}}'
-        - '{{$.inputs.artifacts[''model_pickle''].path}}'
-        - '{{$.inputs.artifacts[''featurelist_json''].path}}'
-        - '{{$.outputs.artifacts[''metric_results_json''].path}}'
-        - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
-        - '{{$.outputs.artifacts[''roc_curve_plot_png''].path}}'
-        - --metric_prefix
-        - '{{$.inputs.parameters[''metric_prefix'']}}'
-        - --dataset_desc
-        - '{{$.inputs.parameters[''dataset_desc'']}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - evaluate_trained_model
         command:
-        - ./evaluate_model.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef evaluate_trained_model(\n    dataset: Input[Dataset],\n    model_pickle:\
+          \ Input[Model],\n    metric_results_json: Output[Artifact],\n    feature_importance_plot_png:\
+          \ Output[Artifact],\n    roc_curve_plot_png: Output[Artifact],\n    metric_prefix:\
+          \ str='metric_',\n    dataset_desc: str='dataset'\n    ) -> None:\n    \"\
+          \"\"evaluate trained model on specified dataset\n\n    Args:\n        dataset\
+          \ (Input[Dataset]): dataset to be used for model inference\n        model_pickle\
+          \ (Input[Model]): pickle file containing pistachio XGBClassifier\n     \
+          \   metric_results_json (Output[Artifact]): location where evaluation metrics\
+          \ will be written (as json)\n        feature_importance_plot_png (Output[Artifact]):\
+          \ path where feature importance plot will be written as png\n        roc_curve_plot_png\
+          \ (Output[Artifact]): path where roc curve plot will be written as png\n\
+          \        metric_prefix (str, optional): string added as a prefix to metric\
+          \ keys. Defaults to 'metric_'.\n        dataset_desc (str, optional): dataset\
+          \ description, used in plot titles. Defaults to 'dataset'.\n\n    Returns:\n\
+          \       None\n    \"\"\"\n    from evaluate_model import evaluate_model_features\n\
+          \    features = dataset.metadata['features']\n\n    metric_results_json.path\
+          \ = metric_results_json.path + '.json'\n    feature_importance_plot_png.path\
+          \ = feature_importance_plot_png.path + '.png'\n    roc_curve_plot_png.path\
+          \ = roc_curve_plot_png.path + '.png'\n\n    evaluate_model_features(\n \
+          \   dataset_path=dataset.path,\n    model_pickle_path=model_pickle.path,\n\
+          \    features=features,\n    metric_results_json=metric_results_json.path,\n\
+          \    feature_importance_plot_png=feature_importance_plot_png.path,\n   \
+          \ roc_curve_plot_png=roc_curve_plot_png.path,\n    metric_prefix=metric_prefix,\n\
+          \    dataset_desc=dataset_desc)\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-evaluation-reporting:
       container:
@@ -497,39 +587,10 @@ deploymentSpec:
     exec-hyperparameter-tuning:
       container:
         args:
-        - '{{$.inputs.artifacts[''preprocessed_train_data''].path}}'
-        - '{{$.inputs.artifacts[''featurelist_json''].path}}'
-        - '{{$.outputs.artifacts[''tuning_results_json''].path}}'
-        - '{{$.outputs.artifacts[''optimal_parameters_json''].path}}'
-        - --cv_seed
-        - '{{$.inputs.parameters[''cv_seed'']}}'
-        - --cv_n_folds
-        - '{{$.inputs.parameters[''cv_n_folds'']}}'
-        - --opt_n_init
-        - '{{$.inputs.parameters[''opt_n_init'']}}'
-        - --opt_n_iter
-        - '{{$.inputs.parameters[''opt_n_iter'']}}'
-        - --opt_random_seed
-        - '{{$.inputs.parameters[''opt_random_seed'']}}'
-        command:
-        - ./model_tuning.py
-        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
-    exec-infer-monitoring:
-      container:
-        args:
-        - '{{$.inputs.artifacts[''inference_data''].path}}'
-        - '{{$.inputs.artifacts[''psi_artifact''].path}}'
-        - '{{$.outputs.artifacts[''psi_results_json''].path}}'
-        command:
-        - ./infer_monitor.py
-        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
-    exec-load-data2:
-      container:
-        args:
         - --executor_input
         - '{{$}}'
         - --function_to_execute
-        - load_data2
+        - hyperparameter_tuning
         command:
         - sh
         - -c
@@ -549,43 +610,205 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef load_data2(input_file_path: str,\n    output_train: Output[Dataset],\n\
+          \ *\n\ndef hyperparameter_tuning(\n    preprocessed_train_data: Input[Dataset],\n\
+          \    tuning_results_json: Output[Artifact],\n    optimal_parameters_json:\
+          \ Output[Artifact],\n    cv_seed: int=43,\n    cv_n_folds: int=5,\n    opt_n_init:\
+          \ int=10,\n    opt_n_iter: int=200,\n    opt_random_seed: int=73,\n    learning_rate_bounds:\
+          \ List[float]=[0.01, 0.3],\n    gamma_bounds: List[float]=[0.0, 0.3],\n\
+          \    min_child_weight_bounds: List[float]=[0.01, 0.07],\n    max_depth_bounds:\
+          \ List[int]=[3, 5],\n    subsample_bounds: List[float]=[0.7, 0.9],\n   \
+          \ reg_alpha_bounds: List[float]=[0.01, 0.1],\n    reg_lambda_bounds: List[float]=[0.01,\
+          \ 0.1],\n    colsample_bytree_bounds: List[float]=[0.1, 0.5]\n    ) -> None:\n\
+          \    \"\"\"hyperparameter tuning component\n    tunes an CGB classifier\
+          \ using bayesopt to search hyperparameter space\n\n    Args:\n        preprocessed_train_data\
+          \ (Input[Dataset]): path to preprocessed training dataset (parquet)\n  \
+          \      tuning_results_json (Output[Artifact]): output path for tuning results/details\
+          \ (json)\n        optimal_parameters_json (Output[Artifact]): output path\
+          \ to best parameter set found (json)\n        cv_seed (int, optional): seed\
+          \ used for splitting fold definition in cross validation. Defaults to 43.\n\
+          \        cv_n_folds (int, optional): number of folds for cross validation.\
+          \ Defaults to 5.\n        opt_n_init (int, optional): number of initial\
+          \ (random) trials, prior to optimised searching. Defaults to 10.\n     \
+          \   opt_n_iter (int, optional): number of search trials to run. Defaults\
+          \ to 200.\n        opt_random_seed (int, optional): random seed to be used\
+          \ during search process. Defaults to 73.\n\n    Returns:\n        None\n\
+          \    \"\"\"\n    from model_tuning import model_tune_features\n    tuning_results_json.path\
+          \ = tuning_results_json.path + '.json'\n    optimal_parameters_json.path\
+          \ = optimal_parameters_json.path + '.json'\n\n    pbounds = {\n        'learning_rate':\
+          \ (learning_rate_bounds[0], learning_rate_bounds[1]),\n        'gamma':\
+          \ (gamma_bounds[0], gamma_bounds[1]),\n        'min_child_weight': (min_child_weight_bounds[0],\
+          \ min_child_weight_bounds[1]),\n        'max_depth': (max_depth_bounds[0],\
+          \ max_depth_bounds[1]),\n        'subsample': (subsample_bounds[0], subsample_bounds[1]),\n\
+          \        'reg_alpha': (reg_alpha_bounds[0], reg_alpha_bounds[1]),\n    \
+          \    'reg_lambda': (reg_lambda_bounds[0], reg_lambda_bounds[1]),\n     \
+          \   'colsample_bytree': (colsample_bytree_bounds[0], colsample_bytree_bounds[1])\n\
+          \    }\n\n    features = preprocessed_train_data.metadata['features']\n\
+          \    model_tune_features(\n        train_file=preprocessed_train_data.path,\n\
+          \        features=features,\n        tune_results_json=tuning_results_json.path,\n\
+          \        optimal_parameters_json=optimal_parameters_json.path,\n       \
+          \ pbounds=pbounds,\n        cv_seed=cv_seed,\n        n_folds=cv_n_folds,\n\
+          \        opt_n_init=opt_n_init,\n        opt_n_iter=opt_n_iter,\n      \
+          \  opt_random_seed=opt_random_seed\n    )\n\n"
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-infer-monitoring:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - infer_monitoring
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef infer_monitoring(\n    inference_data: Input[Dataset],\n    psi_artifact:\
+          \ Input[Artifact],\n    psi_results_json: Output[Artifact]\n    ) -> None:\n\
+          \    \"\"\"inference monitoring component\n    check for data drift when\
+          \ running inference\n\n    Args:\n        inference_data (Input[Dataset]):\
+          \ Dataset to be used for model inference\n        psi_artifact (Input[Artifact]):\
+          \ PSI object containing statistics computed at training time\n        psi_results_json\
+          \ (Output[Artifact]): PSI results as json file\n\n    Returns:\n       \
+          \ None\n    \"\"\"\n\n    from infer_monitoring import eval_psi\n    from\
+          \ pistachio.data_handling import read_from_json\n\n    psi_results_json.path\
+          \ = psi_results_json.path + '.json'\n\n    eval_psi(inference_data.path,\
+          \ psi_artifact.path, psi_results_json.path)\n    # attach psi results as\
+          \ metadata\n    psi_results = read_from_json(psi_results_json.path)\n  \
+          \  inference_data.metadata['psi_evaluation_results'] = psi_results\n\n"
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-load-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - load_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef load_data(input_file_path: str,\n    output_train: Output[Dataset],\n\
           \    output_test: Output[Dataset],\n    split_seed: int=37,\n    test_fraction:\
-          \ float=0.2,\n    label_column: str='Class'\n    ):\n    \"\"\"load_data2\n\
-          \    lightweight component to load data from arff file and write to parquet\n\
-          \n    Args:\n        input_file_path (str): _description_\n        output_train\
-          \ (Output[Dataset]): path train data will be written to\n        output_test\
-          \ (Output[Dataset]): path test data will be written to \n        split_seed\
-          \ (int, optional): seed used when carrying out train/test split. Defaults\
-          \ to 37.\n        test_fraction (float, optional): fraction of data to be\
-          \ allocated to test split. Defaults to 0.2.\n        label_column (str,\
-          \ optional): Label column in that dataset - used to stratify the splitting.\
-          \ Defaults to 'Class'.\n    \"\"\"\n\n    from load_data import load_and_split_data\n\
+          \ float=0.2,\n    label_column: str='Class'\n    )-> None:\n    \"\"\"load_data\n\
+          \    component to load data from arff file and write to parquet\n\n    Args:\n\
+          \        input_file_path (str): _description_\n        output_train (Output[Dataset]):\
+          \ path train data will be written to\n        output_test (Output[Dataset]):\
+          \ path test data will be written to \n        split_seed (int, optional):\
+          \ seed used when carrying out train/test split. Defaults to 37.\n      \
+          \  test_fraction (float, optional): fraction of data to be allocated to\
+          \ test split. Defaults to 0.2.\n        label_column (str, optional): Label\
+          \ column in that dataset - used to stratify the splitting. Defaults to 'Class'.\n\
+          \n    Returns:\n        None\n    \"\"\"\n\n    from load_data import load_and_split_data\n\
           \    # load_data.py is the python file in the image - the container components\
           \ run this as an entrypoint\n\n    output_train.path = output_train.path\
           \ + '.pqt'\n    output_test.path = output_test.path + '.pqt'\n\n    load_and_split_data(\n\
           \        input_file_path=input_file_path,\n        output_train_file_path=output_train.path,\n\
-          \        output_test_file_path=output_train.path,\n        split_seed=split_seed,\n\
+          \        output_test_file_path=output_test.path,\n        split_seed=split_seed,\n\
           \        test_fraction=test_fraction,\n        label_column=label_column\n\
           \    )\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-preprocess-data:
       container:
         args:
-        - '{{$.inputs.artifacts[''input_file''].path}}'
-        - '{{$.outputs.artifacts[''output_file''].path}}'
-        - '{{$.outputs.artifacts[''feature_list''].path}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - preprocess_data
         command:
-        - ./preprocess_data.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef preprocess_data(\n    input_file: Input[Dataset],\n    output_file:\
+          \ Output[Dataset],\n    )-> None:\n    \"\"\"preprocess_data component\n\
+          \n    Args:\n        input_file (Input[Dataset]): path to raw data to be\
+          \ preprocessed\n        output_file (Output[Dataset]): path where preprocessed\
+          \ data will be written \n        feature_list (Output[Artifact]): path to\
+          \ where list of feature columns will be written as json\n\n    Returns:\n\
+          \        None\n    \"\"\"   \n    from preprocess_data import preprocess_data_features\n\
+          \n    output_file.path = output_file.path + '.pqt'\n\n    features = preprocess_data_features(\
+          \ input_file.path, output_file.path)\n    output_file.metadata['features']\
+          \ = features\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-preprocess-data-2:
       container:
         args:
-        - '{{$.inputs.artifacts[''input_file''].path}}'
-        - '{{$.outputs.artifacts[''output_file''].path}}'
-        - '{{$.outputs.artifacts[''feature_list''].path}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - preprocess_data
         command:
-        - ./preprocess_data.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef preprocess_data(\n    input_file: Input[Dataset],\n    output_file:\
+          \ Output[Dataset],\n    )-> None:\n    \"\"\"preprocess_data component\n\
+          \n    Args:\n        input_file (Input[Dataset]): path to raw data to be\
+          \ preprocessed\n        output_file (Output[Dataset]): path where preprocessed\
+          \ data will be written \n        feature_list (Output[Artifact]): path to\
+          \ where list of feature columns will be written as json\n\n    Returns:\n\
+          \        None\n    \"\"\"   \n    from preprocess_data import preprocess_data_features\n\
+          \n    output_file.path = output_file.path + '.pqt'\n\n    features = preprocess_data_features(\
+          \ input_file.path, output_file.path)\n    output_file.metadata['features']\
+          \ = features\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-psi-result-logging:
       container:
@@ -653,36 +876,143 @@ deploymentSpec:
     exec-train-final-model:
       container:
         args:
-        - '{{$.inputs.artifacts[''preprocessed_train_data''].path}}'
-        - '{{$.inputs.artifacts[''optimal_parameters_json''].path}}'
-        - '{{$.outputs.artifacts[''model_pickle''].path}}'
-        - '{{$.inputs.artifacts[''featurelist_json''].path}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train_final_model
         command:
-        - ./train_model.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train_final_model(\n    preprocessed_train_data: Input[Dataset],\n\
+          \    optimal_parameters_json: Input[Artifact],\n    model_pickle: Output[Model],\n\
+          \    ) -> None:\n    \"\"\"model training component\n\n    trains a model\
+          \ and saves it as an artifact (pickle file) based on the parameters obtained\
+          \ from tuning\n\n    Args:\n        preprocessed_train_data (Input[Dataset]):\
+          \ preprocessed training data\n        optimal_parameters_json (Input[Artifact]):\
+          \ parameters to use for the final model\n        model_pickle (Output[Model]):\
+          \ trained model artifact\n\n    Returns:\n        None\n    \"\"\"\n   \
+          \ from train_model import train_final_model_features\n\n    model_pickle.path\
+          \ = model_pickle.path + '.pkl'\n    features = preprocessed_train_data.metadata['features']\n\
+          \n    train_final_model_features(\n        training_data_path=preprocessed_train_data.path,\n\
+          \        optimal_parameters_json_path=optimal_parameters_json.path,\n  \
+          \      output_model_artifact_path=model_pickle.path,\n        features=features\n\
+          \    )\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-train-monitoring:
       container:
         args:
-        - '{{$.inputs.artifacts[''train_data''].path}}'
-        - '{{$.outputs.artifacts[''psi_artifact''].path}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - train_monitoring
         command:
-        - ./train_monitoring.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef train_monitoring(\n    train_data: Input[Dataset],\n    psi_artifact:\
+          \ Output[Artifact]\n    ) -> None:\n    \"\"\"train_monitoring component\n\
+          \n    Args:\n        train_data (Input[Dataset]): preprocessed training\
+          \ data\n        psi_artifact (Output[Artifact]): PSI artifact containing\
+          \ trained PSIMetrics object\n\n    Returns:\n        None\n    \"\"\"\n\n\
+          \    from train_monitoring import fit_psi\n\n    psi_artifact.path = psi_artifact.path\
+          \ + '.pkl'\n    fit_psi(train_data.path, psi_artifact.path)\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-validate-data:
       container:
         args:
-        - '{{$.inputs.artifacts[''input_file''].path}}'
-        - '{{$.inputs.parameters[''schema_file_path'']}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - validate_data
         command:
-        - ./validate_data.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef validate_data(\n    input_file: Input[Dataset],\n    schema_file_path:\
+          \ str\n    )-> None:\n    \"\"\"validate_data component\n\n    Args:\n \
+          \       input_file (Input[Dataset]): path to input dataset to be validated\n\
+          \        schema_file_path (str): pandera schema file to use for validation\n\
+          \n    Returns:\n        None\n    \"\"\"\n    from validate_data import\
+          \ validate_data\n    validate_data(input_file.path, schema_file_path)\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-validate-data-2:
       container:
         args:
-        - '{{$.inputs.artifacts[''input_file''].path}}'
-        - '{{$.inputs.parameters[''schema_file_path'']}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - validate_data
         command:
-        - ./validate_data.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef validate_data(\n    input_file: Input[Dataset],\n    schema_file_path:\
+          \ str\n    )-> None:\n    \"\"\"validate_data component\n\n    Args:\n \
+          \       input_file (Input[Dataset]): path to input dataset to be validated\n\
+          \        schema_file_path (str): pandera schema file to use for validation\n\
+          \n    Returns:\n        None\n    \"\"\"\n    from validate_data import\
+          \ validate_data\n    validate_data(input_file.path, schema_file_path)\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
 pipelineInfo:
   description: pipeline for training pistachio classifier
@@ -718,10 +1048,6 @@ root:
               taskOutputArtifact:
                 outputArtifactKey: output_file
                 producerTask: preprocess-data
-            featurelist_json:
-              taskOutputArtifact:
-                outputArtifactKey: feature_list
-                producerTask: preprocess-data
             model_pickle:
               taskOutputArtifact:
                 outputArtifactKey: model_pickle
@@ -734,7 +1060,7 @@ root:
               runtimeValue:
                 constant: train_metrics
         taskInfo:
-          name: evaluate-trained-model
+          name: model evaluation - training data
       evaluate-trained-model-2:
         cachingOptions:
           enableCache: true
@@ -749,10 +1075,6 @@ root:
               taskOutputArtifact:
                 outputArtifactKey: output_file
                 producerTask: preprocess-data-2
-            featurelist_json:
-              taskOutputArtifact:
-                outputArtifactKey: feature_list
-                producerTask: preprocess-data-2
             model_pickle:
               taskOutputArtifact:
                 outputArtifactKey: model_pickle
@@ -765,7 +1087,7 @@ root:
               runtimeValue:
                 constant: test_metrics
         taskInfo:
-          name: evaluate-trained-model-2
+          name: model evaluation - test data
       evaluation-reporting:
         cachingOptions:
           enableCache: true
@@ -797,7 +1119,7 @@ root:
                 outputArtifactKey: roc_curve_plot_png
                 producerTask: evaluate-trained-model
         taskInfo:
-          name: evaluation-reporting
+          name: log evaluation results
       hyperparameter-tuning:
         cachingOptions:
           enableCache: true
@@ -807,10 +1129,6 @@ root:
         - preprocess-data
         inputs:
           artifacts:
-            featurelist_json:
-              taskOutputArtifact:
-                outputArtifactKey: feature_list
-                producerTask: preprocess-data
             preprocessed_train_data:
               taskOutputArtifact:
                 outputArtifactKey: output_file
@@ -821,7 +1139,7 @@ root:
             opt_n_iter:
               componentInputParameter: tuning_opt_n_iter
         taskInfo:
-          name: hyperparameter-tuning
+          name: hyperparameter tuning
       infer-monitoring:
         cachingOptions:
           enableCache: true
@@ -842,11 +1160,11 @@ root:
                 producerTask: train-monitoring
         taskInfo:
           name: test data PSI monitoring
-      load-data2:
+      load-data:
         cachingOptions:
           enableCache: true
         componentRef:
-          name: comp-load-data2
+          name: comp-load-data
         inputs:
           parameters:
             input_file_path:
@@ -860,21 +1178,21 @@ root:
             test_fraction:
               componentInputParameter: test_split_data_fraction
         taskInfo:
-          name: load-data2
+          name: load-data
       preprocess-data:
         cachingOptions:
           enableCache: true
         componentRef:
           name: comp-preprocess-data
         dependentTasks:
-        - load-data2
+        - load-data
         - validate-data
         inputs:
           artifacts:
             input_file:
               taskOutputArtifact:
                 outputArtifactKey: output_train
-                producerTask: load-data2
+                producerTask: load-data
         taskInfo:
           name: preprocess train data
       preprocess-data-2:
@@ -883,14 +1201,14 @@ root:
         componentRef:
           name: comp-preprocess-data-2
         dependentTasks:
-        - load-data2
+        - load-data
         - validate-data-2
         inputs:
           artifacts:
             input_file:
               taskOutputArtifact:
                 outputArtifactKey: output_test
-                producerTask: load-data2
+                producerTask: load-data
         taskInfo:
           name: preprocess test data
       psi-result-logging:
@@ -911,7 +1229,7 @@ root:
               runtimeValue:
                 constant: logging PSI metrics at training time on test dataset
         taskInfo:
-          name: psi-result-logging
+          name: data monitoring - log results
       train-final-model:
         cachingOptions:
           enableCache: true
@@ -922,10 +1240,6 @@ root:
         - preprocess-data
         inputs:
           artifacts:
-            featurelist_json:
-              taskOutputArtifact:
-                outputArtifactKey: feature_list
-                producerTask: preprocess-data
             optimal_parameters_json:
               taskOutputArtifact:
                 outputArtifactKey: optimal_parameters_json
@@ -935,7 +1249,7 @@ root:
                 outputArtifactKey: output_file
                 producerTask: preprocess-data
         taskInfo:
-          name: train-final-model
+          name: model training
       train-monitoring:
         cachingOptions:
           enableCache: true
@@ -957,13 +1271,13 @@ root:
         componentRef:
           name: comp-validate-data
         dependentTasks:
-        - load-data2
+        - load-data
         inputs:
           artifacts:
             input_file:
               taskOutputArtifact:
                 outputArtifactKey: output_train
-                producerTask: load-data2
+                producerTask: load-data
           parameters:
             schema_file_path:
               runtimeValue:
@@ -976,13 +1290,13 @@ root:
         componentRef:
           name: comp-validate-data-2
         dependentTasks:
-        - load-data2
+        - load-data
         inputs:
           artifacts:
             input_file:
               taskOutputArtifact:
                 outputArtifactKey: output_test
-                producerTask: load-data2
+                producerTask: load-data
           parameters:
             schema_file_path:
               runtimeValue:
