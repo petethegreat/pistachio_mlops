@@ -407,7 +407,7 @@ def evaluation_reporting(
         test_results['roc_curve']['tpr'],
         test_results['roc_curve']['fpr']]
     
-    evaluation_metrics.log_roc_readings('test', test_roc_curve_definition)
+    evaluation_metrics.load_roc_readings('test', test_roc_curve_definition)
     
     # write markdown content
     output_dir = os.path.dirname(psi_markdown.path)
