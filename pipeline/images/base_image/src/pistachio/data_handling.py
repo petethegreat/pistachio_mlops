@@ -8,6 +8,8 @@ from typing import List
 import numpy as np
 from sklearn.model_selection import train_test_split
 
+from pandera import DataFrameSchema
+
 logger = logging.getLogger(__name__)
 
 
@@ -36,9 +38,21 @@ def load_arff_file(input_arff: str, output_parquet: str) -> pd.DataFrame:
     return df
 ##################
 
+def load_parquet_file(input_file_path: str) -> pd.DataFrame:
+    """load pandas dataframe from parquet file
+
+    Args:
+        input_file_path (str): input data file
+
+    Returns:
+        pd.DataFrame: dataframe
+    """
+    df = pd.read_parquet(input_file_path)
+    return df
+##################
 
 def split_data(
-        input_parquet: str, 
+        input_dataframe: pd.DataFrame, 
         train_filename: str,
         test_filename: str,
         label_column: str,
@@ -47,10 +61,9 @@ def split_data(
     """stratify sample the data"""
     # set seed
     # np.random.seed(seed)
-    in_df = pd.read_parquet(input_parquet)
-    y = in_df.pop(label_column)
+    y = input_dataframe.pop(label_column)
     x_train, x_test, y_train, y_test = train_test_split(
-        in_df, 
+        input_dataframe, 
         y, 
         random_state=seed, 
         stratify=y, 
@@ -65,5 +78,28 @@ def split_data(
     # write data
     x_train.to_parquet(train_filename)
     x_test.to_parquet(test_filename)
+    logger.info(f"wrote train data to {train_filename}")
+    logger.info(f"wrote test data to {test_filename}")
 ##############################
+
+def validate_data(in_df: pd.DataFrame, schema_file: str) -> pd.DataFrame:
+    """check input data, count nulls, basic stats"""
+    # load schema
+    logger.info('validating file')
+    the_schema = DataFrameSchema.from_json(schema_file)
+    the_schema.validate(in_df)
+
+    
+    
+    # summary = in_df.describe(include='all')
+    # # check for entirely missing columns
+    # entirely_missing = [x for x in in_df.columns if summary.loc['count', x] == 0]
+    # if entirely_missing:
+    #     raise ValueError(f'following columns in supplied data are missing: {entirely_missing}')
+    # # check that columns have more than one unique value
+    # single_value_columns = [x for x in in_df.columns if summary.loc['unique', column] == 1]
+    # if entirely_missing:
+    #     raise ValueError(f'following columns in supplied data are missing: {entirely_missing}')
+
+
 

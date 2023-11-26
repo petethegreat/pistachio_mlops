@@ -26,9 +26,15 @@ def load_and_split_data(
         label_column (str): label column in the input dataframe - used to stratify the split
     """
    
-    df = load_arff_file()
-    split_data()
-    logger.info('Done')
+    df = load_arff_file(input_file_path)
+    split_data(
+        df,
+        output_train_file_path,
+        output_test_file_path,
+        label_column,
+        test_fraction=test_fraction,
+        seed=split_seed)
+    logger.info('Done splitting data')
 
 def main():
 
@@ -54,8 +60,6 @@ def main():
         test_fraction=args.test_fraction,
         label_column=args.label_column
         )
-    
-
 
 if __name__ == "__main__":
     main()
