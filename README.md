@@ -44,7 +44,9 @@ test load_data
 test validate_data
 ```docker run  -v ./pipeline/data:/data pistachio_base:0.0.1 validate_data.py /data/pistachio_imagetest_train.pqt /data/pistachio_schema.json```
 
+## Compoents
 
+components dir is redundant, container specs can be defined in python in kfp v2
 
 
 # todo
