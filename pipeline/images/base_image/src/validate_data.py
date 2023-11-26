@@ -6,55 +6,56 @@
 # write train/test to parquet
 
 from argparse import ArgumentParser
-from pistachio.data_handling import load_arff_file, split_data
+from pistachio.data_handling import load_parquet_file, validate_data_with_schema
 
 import logging
-logger = logging
+import sys
+logger = logging.getLogger('validate_data')
+
+
+def setup_logging():
+    """log to stdout"""
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+#########################################################
 
 def validate_data(
     input_file_path: str,
-    schema_file_location: str
+    schema_file_path: str
     ) -> None:
     """run pandera data validation on specified file
 
     Args:
         input_file_path (str): _description_
-        schema_file_location (str): _description_
+        schema_file_path (str): _description_
     """
+
+
+    validate_data_with_schema(df, schema_file_path)
    
-    df = load_arff_file(input_file_path)
-    split_data(
-        df,
-        output_train_file_path,
-        output_test_file_path,
-        label_column,
-        test_fraction=test_fraction,
-        seed=split_seed)
-    logger.info('Done splitting data')
+    df = load_parquet_file(input_file_path)
+    logger.info(f'loaded data from {input_file_path}')
+    validate_data_with_schema(df, schema_file_path)
+    logger.info('file passed validation')
+#########################################################3
 
 def main():
+    setup_logging()
 
     parser = ArgumentParser(
         description="load pistachio data from input arff file, split to train/test, write to parquet"
     )
-    parser.add_argument('input_file', type='str')
-    parser.add_argument('output_train_file', type='str')
-    parser.add_argument('output_test_file', type='str')
-    parser.add_argument('--split_seed', type='int', default=37, help='random seed for train/test split')
-    parser.add_argument('--test_fraction', type='float', default=0.2, help='fraction of data to use for test set')
-    parser.add_argument('--label_column', type='str', default='Class', help='label column used to stratify data')
+    parser.add_argument('input_file_path', type='str')
+    parser.add_argument('schema_file_path', type='str')
 
-    # arff_filepath = './data/Pistachio_Dataset/Pistachio_16_Features_Dataset/Pistachio_16_Features_Dataset.arff'
-    # parquet_path = './data/pistachio_16.snappy.pqt'
     args = parser.parse_args()
 
-    load_and_split_data(
+    validate_data(
         args.input_file,
-        args.output_train_file,
-        args.output_test_file,
-        split_seed=args.split_seed,
-        test_fraction=args.test_fraction,
-        label_column=args.label_column
+        args.schema_file_path,
         )
 
 if __name__ == "__main__":

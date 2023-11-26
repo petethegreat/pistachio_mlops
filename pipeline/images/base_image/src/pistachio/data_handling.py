@@ -82,7 +82,7 @@ def split_data(
     logger.info(f"wrote test data to {test_filename}")
 ##############################
 
-def validate_data(in_df: pd.DataFrame, schema_file: str) -> pd.DataFrame:
+def validate_data_with_schema(in_df: pd.DataFrame, schema_file: str) -> pd.DataFrame:
     """check input data, count nulls, basic stats"""
     # load schema
     logger.info('validating file')

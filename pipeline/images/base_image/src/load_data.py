@@ -5,8 +5,19 @@
 from argparse import ArgumentParser
 from pistachio.data_handling import load_arff_file, split_data
 
+
 import logging
-logger = logging
+import sys
+logger = logging.getLogger('load_data')
+
+def setup_logging():
+    """log to stdout"""
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setLevel(logging.DEBUG)
+    formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+    handler.setFormatter(formatter)
+    logger.addHandler(handler)
+#########################################################
 
 def load_and_split_data(
     input_file_path: str,
@@ -35,18 +46,22 @@ def load_and_split_data(
         test_fraction=test_fraction,
         seed=split_seed)
     logger.info('Done splitting data')
+#########################################################
 
 def main():
+    """do the things"""
+
+    setup_logging()
 
     parser = ArgumentParser(
         description="load pistachio data from input arff file, split to train/test, write to parquet"
     )
-    parser.add_argument('input_file', type='str')
-    parser.add_argument('output_train_file', type='str')
-    parser.add_argument('output_test_file', type='str')
-    parser.add_argument('--split_seed', type='int', default=37, help='random seed for train/test split')
-    parser.add_argument('--test_fraction', type='float', default=0.2, help='fraction of data to use for test set')
-    parser.add_argument('--label_column', type='str', default='Class', help='label column used to stratify data')
+    parser.add_argument('input_file', type=str)
+    parser.add_argument('output_train_file', type=str)
+    parser.add_argument('output_test_file', type=str)
+    parser.add_argument('--split_seed', type=int, default=37, help='random seed for train/test split')
+    parser.add_argument('--test_fraction', type=float, default=0.2, help='fraction of data to use for test set')
+    parser.add_argument('--label_column', type=str, default='Class', help='label column used to stratify data')
 
     # arff_filepath = './data/Pistachio_Dataset/Pistachio_16_Features_Dataset/Pistachio_16_Features_Dataset.arff'
     # parquet_path = './data/pistachio_16.snappy.pqt'
@@ -60,6 +75,7 @@ def main():
         test_fraction=args.test_fraction,
         label_column=args.label_column
         )
+#########################################################
 
 if __name__ == "__main__":
     main()
