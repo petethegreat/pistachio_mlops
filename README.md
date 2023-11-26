@@ -44,6 +44,7 @@ https://www.kubeflow.org/docs/components/pipelines/v1/sdk/component-development/
  - build pipeline, push pipeline, run it.
 
 
-
+https://stackoverflow.com/questions/68348026/run-id-in-kubeflow-pipelines-on-vertex-ai
+dsl.PIPELINE_JOB_ID_PLACEHOLDER
 
 
