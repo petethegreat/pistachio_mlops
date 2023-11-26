@@ -8,7 +8,7 @@ from kfp import dsl
 from kfp import compiler
 from kfp.registry import RegistryClient
 
-from components import load_data, validate_data, preprocess_data
+from components import load_data, validate_data, preprocess_data, psi_result_logging
 from components import hyperparameter_tuning, train_monitoring, infer_monitoring
 
 import yaml
@@ -74,10 +74,15 @@ def pistachio_training_pipeline(
         .after(validate_test_data_task)\
         .set_display_name('preprocess test data')
     
-    infer_monitor_task = infer_monitoring(
+    infer_monitor_test_task = infer_monitoring(
         inference_data=preprocess_test_data_task.outputs["output_file"],
         psi_artifact=train_monitoring_task.outputs["psi_artifact"])\
         .set_display_name('test data PSI monitoring')
+    
+    test_monitor_logging_task = psi_result_logging(
+        psi_results_json=infer_monitor_test_task.outputs['psi_results_json'],
+        md_note="""logging PSI metrics at training time on test dataset"""
+    )
     
     hyperparameter_tune_task = hyperparameter_tuning(
         preprocessed_train_data=preprocess_train_data_task.outputs["output_file"],
@@ -85,10 +90,6 @@ def pistachio_training_pipeline(
         opt_n_iter=tuning_opt_n_iter,
         cv_seed=tuning_cv_seed
     )
-    
-def psi_result_logging(
-
-
     
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
