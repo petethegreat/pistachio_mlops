@@ -1,0 +1,92 @@
+# PIPELINE DEFINITION
+# Name: pistachio-training-pipeline
+# Description: pipeline for training pistachio classifier
+# Inputs:
+#    test_split_data_fraction: float
+#    train_test_split_seed: int
+components:
+  comp-load-data:
+    executorLabel: exec-load-data
+    inputDefinitions:
+      parameters:
+        input_file:
+          description: path to pistachio arff file - use /gcs fuse mount
+          parameterType: STRING
+        label_column:
+          defaultValue: Class
+          description: column used to stratify data for splitting. Defaults to 'Class'.
+          isOptional: true
+          parameterType: STRING
+        split_seed:
+          defaultValue: 37.0
+          description: seed to be used for train/test splitting. Defaults to 37.
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        test_fraction:
+          defaultValue: 0.2
+          description: fraction of data to be used for test split. Defaults to 0.2.
+          isOptional: true
+          parameterType: NUMBER_DOUBLE
+    outputDefinitions:
+      artifacts:
+        output_test_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+        output_train_path:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+defaultPipelineRoot: gs://bucket/path
+deploymentSpec:
+  executors:
+    exec-load-data:
+      container:
+        args:
+        - '{{$.inputs.parameters[''input_file'']}}'
+        - '{{$.outputs.parameters[''output_train_path''].output_file}}'
+        - '{{$.outputs.parameters[''output_test_path''].output_file}}'
+        - --split_seed
+        - '{{$.inputs.parameters[''split_seed'']}}'
+        - --test_fraction
+        - '{{$.inputs.parameters[''test_fraction'']}}'
+        - --label_column
+        - '{{$.inputs.parameters[''label_column'']}}'
+        command:
+        - load_data.py
+        image: THE_ARTIFACT_REGISTRY/pistachio_base:0.01
+pipelineInfo:
+  description: pipeline for training pistachio classifier
+  name: pistachio-training-pipeline
+root:
+  dag:
+    tasks:
+      load-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-load-data
+        inputs:
+          parameters:
+            input_file:
+              runtimeValue:
+                constant: arff_file gcs_url or /gcs path
+            label_column:
+              runtimeValue:
+                constant: Class
+            split_seed:
+              componentInputParameter: train_test_split_seed
+            test_fraction:
+              componentInputParameter: test_split_data_fraction
+        taskInfo:
+          name: load-data
+  inputDefinitions:
+    parameters:
+      test_split_data_fraction:
+        description: _description_
+        parameterType: NUMBER_DOUBLE
+      train_test_split_seed:
+        description: _description_
+        parameterType: NUMBER_INTEGER
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.3.0

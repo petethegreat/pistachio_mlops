@@ -17,26 +17,26 @@ BASE_IMAGE=f"{CONFIG['artifact_registry']}/{CONFIG['base_image_name']}"
 @dsl.container_component
 def load_data(
     input_file: str,
-    output_train_path: OutputPath[Dataset],
-    output_test_path: OutputPath[Dataset],
+    output_train_path: OutputPath(Dataset),
+    output_test_path: OutputPath(Dataset),
     split_seed: int=37,
     test_fraction: float=0.2,
     label_column: str='Class'
-    ) -> None:
+    ) -> dsl.ContainerSpec:
     """load_data component
 
     loads data from arff file ()
 
     Args:
         input_file (str): path to pistachio arff file - use /gcs fuse mount
-        output_train_path (OutputPath[Dataset]): output path for train dataset (parquet)
-        output_test_path (OutputPath[Dataset]): output path for test dataset (parquet)
+        output_train_path (OutputPath(Dataset)): output path for train dataset (parquet)
+        output_test_path (OutputPath(Dataset)): output path for test dataset (parquet)
         split_seed (int, optional): seed to be used for train/test splitting. Defaults to 37.
         test_fraction (float, optional): fraction of data to be used for test split. Defaults to 0.2.
         label_column (str, optional): column used to stratify data for splitting. Defaults to 'Class'.
 
     Returns:
-        _type_: _description_
+        dsl.ContainerSpec: component definition
     """
 
     return dsl.ContainerSpec(
@@ -58,19 +58,19 @@ def load_data(
 
 @dsl.container_component
 def validate_data(
-    input_file_path: InputPath[Dataset],
-    schema_file_path: str,
-    ) -> None:
+    input_file_path: InputPath(Dataset),
+    schema_file_path: str
+    ) -> dsl.ContainerSpec:
     """validate_data component
 
     runs pandera data validation on dataset
 
     Args:
-        input_file_path (InputPath[Dataset]): InputPath to data to be validated
+        input_file_path (InputPath(Dataset)): InputPath to data to be validated
         schema_file_path (str): pandera schema file to use for validation
 
     Returns:
-        _type_: _description_
+        dsl.ContainerSpec: container component definition
     """
     
 
