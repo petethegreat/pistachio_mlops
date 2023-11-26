@@ -210,25 +210,28 @@ components:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
-  comp-load-data:
-    executorLabel: exec-load-data
+  comp-load-data2:
+    executorLabel: exec-load-data2
     inputDefinitions:
       parameters:
         input_file_path:
+          description: _description_
           parameterType: STRING
         label_column:
           defaultValue: Class
-          description: column used to stratify data for splitting. Defaults to 'Class'.
+          description: Label column in that dataset - used to stratify the splitting.
+            Defaults to 'Class'.
           isOptional: true
           parameterType: STRING
         split_seed:
           defaultValue: 37.0
-          description: seed to be used for train/test splitting. Defaults to 37.
+          description: seed used when carrying out train/test split. Defaults to 37.
           isOptional: true
           parameterType: NUMBER_INTEGER
         test_fraction:
           defaultValue: 0.2
-          description: fraction of data to be used for test split. Defaults to 0.2.
+          description: fraction of data to be allocated to test split. Defaults to
+            0.2.
           isOptional: true
           parameterType: NUMBER_DOUBLE
     outputDefinitions:
@@ -384,10 +387,9 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''dataset''].path}}'
         - '{{$.inputs.artifacts[''model_pickle''].path}}'
         - '{{$.inputs.artifacts[''featurelist_json''].path}}'
-        - '{"Concat": ["{{$.outputs.artifacts[''metric_results_json''].path}}", ".json"]}'
-        - '{"Concat": ["{{$.outputs.artifacts[''feature_importance_plot_png''].path}}",
-          ".png"]}'
-        - '{"Concat": ["{{$.outputs.artifacts[''roc_curve_plot_png''].path}}", ".png"]}'
+        - '{{$.outputs.artifacts[''metric_results_json''].path}}'
+        - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
+        - '{{$.outputs.artifacts[''roc_curve_plot_png''].path}}'
         - --metric_prefix
         - '{{$.inputs.parameters[''metric_prefix'']}}'
         - --dataset_desc
@@ -401,10 +403,9 @@ deploymentSpec:
         - '{{$.inputs.artifacts[''dataset''].path}}'
         - '{{$.inputs.artifacts[''model_pickle''].path}}'
         - '{{$.inputs.artifacts[''featurelist_json''].path}}'
-        - '{"Concat": ["{{$.outputs.artifacts[''metric_results_json''].path}}", ".json"]}'
-        - '{"Concat": ["{{$.outputs.artifacts[''feature_importance_plot_png''].path}}",
-          ".png"]}'
-        - '{"Concat": ["{{$.outputs.artifacts[''roc_curve_plot_png''].path}}", ".png"]}'
+        - '{{$.outputs.artifacts[''metric_results_json''].path}}'
+        - '{{$.outputs.artifacts[''feature_importance_plot_png''].path}}'
+        - '{{$.outputs.artifacts[''roc_curve_plot_png''].path}}'
         - --metric_prefix
         - '{{$.inputs.parameters[''metric_prefix'']}}'
         - --dataset_desc
@@ -522,27 +523,58 @@ deploymentSpec:
         command:
         - ./infer_monitor.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
-    exec-load-data:
+    exec-load-data2:
       container:
         args:
-        - '{{$.inputs.parameters[''input_file_path'']}}'
-        - '{"Concat": ["{{$.outputs.artifacts[''output_train''].path}}", ".pqt"]}'
-        - '{"Concat": ["{{$.outputs.artifacts[''output_test''].path}}", ".pqt"]}'
-        - --split_seed
-        - '{{$.inputs.parameters[''split_seed'']}}'
-        - --test_fraction
-        - '{{$.inputs.parameters[''test_fraction'']}}'
-        - --label_column
-        - '{{$.inputs.parameters[''label_column'']}}'
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - load_data2
         command:
-        - ./load_data.py
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef load_data2(input_file_path: str,\n    output_train: Output[Dataset],\n\
+          \    output_test: Output[Dataset],\n    split_seed: int=37,\n    test_fraction:\
+          \ float=0.2,\n    label_column: str='Class'\n    ):\n    \"\"\"load_data2\n\
+          \    lightweight component to load data from arff file and write to parquet\n\
+          \n    Args:\n        input_file_path (str): _description_\n        output_train\
+          \ (Output[Dataset]): path train data will be written to\n        output_test\
+          \ (Output[Dataset]): path test data will be written to \n        split_seed\
+          \ (int, optional): seed used when carrying out train/test split. Defaults\
+          \ to 37.\n        test_fraction (float, optional): fraction of data to be\
+          \ allocated to test split. Defaults to 0.2.\n        label_column (str,\
+          \ optional): Label column in that dataset - used to stratify the splitting.\
+          \ Defaults to 'Class'.\n    \"\"\"\n\n    from load_data import load_and_split_data\n\
+          \    # load_data.py is the python file in the image - the container components\
+          \ run this as an entrypoint\n\n    output_train.path = output_train.path\
+          \ + '.pqt'\n    output_test.path = output_test.path + '.pqt'\n\n    load_and_split_data(\n\
+          \        input_file_path=input_file_path,\n        output_train_file_path=output_train.path,\n\
+          \        output_test_file_path=output_train.path,\n        split_seed=split_seed,\n\
+          \        test_fraction=test_fraction,\n        label_column=label_column\n\
+          \    )\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-preprocess-data:
       container:
         args:
         - '{{$.inputs.artifacts[''input_file''].path}}'
-        - '{"Concat": ["{{$.outputs.artifacts[''output_file''].path}}", ".pqt"]}'
-        - '{"Concat": ["{{$.outputs.artifacts[''feature_list''].path}}", ".json"]}'
+        - '{{$.outputs.artifacts[''output_file''].path}}'
+        - '{{$.outputs.artifacts[''feature_list''].path}}'
         command:
         - ./preprocess_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
@@ -550,8 +582,8 @@ deploymentSpec:
       container:
         args:
         - '{{$.inputs.artifacts[''input_file''].path}}'
-        - '{"Concat": ["{{$.outputs.artifacts[''output_file''].path}}", ".pqt"]}'
-        - '{"Concat": ["{{$.outputs.artifacts[''feature_list''].path}}", ".json"]}'
+        - '{{$.outputs.artifacts[''output_file''].path}}'
+        - '{{$.outputs.artifacts[''feature_list''].path}}'
         command:
         - ./preprocess_data.py
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
@@ -810,11 +842,11 @@ root:
                 producerTask: train-monitoring
         taskInfo:
           name: test data PSI monitoring
-      load-data:
+      load-data2:
         cachingOptions:
           enableCache: true
         componentRef:
-          name: comp-load-data
+          name: comp-load-data2
         inputs:
           parameters:
             input_file_path:
@@ -828,21 +860,21 @@ root:
             test_fraction:
               componentInputParameter: test_split_data_fraction
         taskInfo:
-          name: load-data
+          name: load-data2
       preprocess-data:
         cachingOptions:
           enableCache: true
         componentRef:
           name: comp-preprocess-data
         dependentTasks:
-        - load-data
+        - load-data2
         - validate-data
         inputs:
           artifacts:
             input_file:
               taskOutputArtifact:
                 outputArtifactKey: output_train
-                producerTask: load-data
+                producerTask: load-data2
         taskInfo:
           name: preprocess train data
       preprocess-data-2:
@@ -851,14 +883,14 @@ root:
         componentRef:
           name: comp-preprocess-data-2
         dependentTasks:
-        - load-data
+        - load-data2
         - validate-data-2
         inputs:
           artifacts:
             input_file:
               taskOutputArtifact:
                 outputArtifactKey: output_test
-                producerTask: load-data
+                producerTask: load-data2
         taskInfo:
           name: preprocess test data
       psi-result-logging:
@@ -925,13 +957,13 @@ root:
         componentRef:
           name: comp-validate-data
         dependentTasks:
-        - load-data
+        - load-data2
         inputs:
           artifacts:
             input_file:
               taskOutputArtifact:
                 outputArtifactKey: output_train
-                producerTask: load-data
+                producerTask: load-data2
           parameters:
             schema_file_path:
               runtimeValue:
@@ -944,13 +976,13 @@ root:
         componentRef:
           name: comp-validate-data-2
         dependentTasks:
-        - load-data
+        - load-data2
         inputs:
           artifacts:
             input_file:
               taskOutputArtifact:
                 outputArtifactKey: output_test
-                producerTask: load-data
+                producerTask: load-data2
           parameters:
             schema_file_path:
               runtimeValue:

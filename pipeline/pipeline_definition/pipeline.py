@@ -8,9 +8,9 @@ from kfp import dsl
 from kfp import compiler
 from kfp.registry import RegistryClient
 
-from components import load_data, validate_data, preprocess_data, psi_result_logging
-from components import hyperparameter_tuning, train_monitoring, infer_monitoring, train_final_model
-from components import evaluate_trained_model, evaluation_reporting
+from container_components import validate_data, preprocess_data, hyperparameter_tuning, train_monitoring # load_data
+from container_components import infer_monitoring, train_final_model, evaluate_trained_model
+from components import  evaluation_reporting, load_data2, psi_result_logging
 
 
 import yaml
@@ -46,7 +46,13 @@ def pistachio_training_pipeline(
     """
     
 
-    load_data_task = load_data(
+    # load_data_task = load_data(
+    #     input_file_path=arff_file_path,
+    #     split_seed=train_test_split_seed,
+    #     test_fraction=test_split_data_fraction,
+    #     label_column=stratify_column_name)
+    
+    load_data_task = load_data2(
         input_file_path=arff_file_path,
         split_seed=train_test_split_seed,
         test_fraction=test_split_data_fraction,
