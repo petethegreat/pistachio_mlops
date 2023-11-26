@@ -160,14 +160,14 @@ def hyperparameter_tuning(
     opt_n_init: int=10,
     opt_n_iter: int=200,
     opt_random_seed: int=73,
-    learning_rate_bounds: Tuple[float,float]=(0.01, 0.3),
-    gamma_bounds: Tuple[float,float] = (0.0, 0.3),
-    min_child_weight_bounds: Tuple[float,float] = (0.01, 0.07),
-    max_depth_bounds: Tuple[int,int] = (3, 5),
-    subsample_bounds: Tuple[float,float] = (0.7, 0.9),
-    reg_alpha_bounds: Tuple[float,float] = (0.01, 0.1),
-    reg_lambda_bounds: Tuple[float,float] = (0.01, 0.1),
-    colsample_bytree_bounds: Tuple[float,float] = (0.1, 0.5)
+    learning_rate_bounds: List[float]=[0.01, 0.3],
+    gamma_bounds: List[float]=[0.0, 0.3],
+    min_child_weight_bounds: List[float]=[0.01, 0.07],
+    max_depth_bounds: List[int]=[3, 5],
+    subsample_bounds: List[float]=[0.7, 0.9],
+    reg_alpha_bounds: List[float]=[0.01, 0.1],
+    reg_lambda_bounds: List[float]=[0.01, 0.1],
+    colsample_bytree_bounds: List[float]=[0.1, 0.5]
     ) -> None:
     """hyperparameter tuning component
     tunes an CGB classifier using bayesopt to search hyperparameter space
@@ -190,14 +190,14 @@ def hyperparameter_tuning(
     optimal_parameters_json.path = optimal_parameters_json.path + '.json'
 
     pbounds = {
-        'learning_rate': learning_rate_bounds,
-        'gamma': gamma_bounds,
-        'min_child_weight': min_child_weight_bounds,
-        'max_depth': max_depth_bounds,
-        'subsample': subsample_bounds,
-        'reg_alpha': reg_alpha_bounds,
-        'reg_lambda': reg_lambda_bounds,
-        'colsample_bytree': colsample_bytree_bounds
+        'learning_rate': (learning_rate_bounds[0], learning_rate_bounds[1]),
+        'gamma': (gamma_bounds[0], gamma_bounds[1]),
+        'min_child_weight': (min_child_weight_bounds[0], min_child_weight_bounds[1]),
+        'max_depth': (max_depth_bounds[0], max_depth_bounds[1]),
+        'subsample': (subsample_bounds[0], subsample_bounds[1]),
+        'reg_alpha': (reg_alpha_bounds[0], reg_alpha_bounds[1]),
+        'reg_lambda': (reg_lambda_bounds[0], reg_lambda_bounds[1]),
+        'colsample_bytree': (colsample_bytree_bounds[0], colsample_bytree_bounds[1])
     }
 
     features = preprocessed_train_data.metadata['features']
@@ -208,7 +208,7 @@ def hyperparameter_tuning(
         optimal_parameters_json=optimal_parameters_json.path,
         pbounds=pbounds,
         cv_seed=cv_seed,
-        n_folds=n_folds,
+        n_folds=cv_n_folds,
         opt_n_init=opt_n_init,
         opt_n_iter=opt_n_iter,
         opt_random_seed=opt_random_seed
@@ -254,7 +254,7 @@ def evaluate_trained_model(
     roc_curve_plot_png: Output[Artifact],
     metric_prefix: str='metric_',
     dataset_desc: str='dataset'
-    ) -> dsl.ContainerSpec:
+    ) -> None:
     """evaluate trained model on specified dataset
 
     Args:
@@ -267,9 +267,9 @@ def evaluate_trained_model(
         dataset_desc (str, optional): dataset description, used in plot titles. Defaults to 'dataset'.
 
     Returns:
-        dsl.ContainerSpec: _description_
+       None
     """
-    from train_model import evaluate_model_features
+    from evaluate_model import evaluate_model_features
     features = dataset.metadata['features']
     
     metric_results_json.path = metric_results_json.path + '.json'
