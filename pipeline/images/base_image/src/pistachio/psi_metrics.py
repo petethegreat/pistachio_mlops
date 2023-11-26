@@ -277,7 +277,7 @@ class PSImetrics(FeatureMetric):
             if col not in eval_data.columns:
                 raise ValueError(f'Error column {col} is missing from data to be evaluated')
             psi_val, details = self._evaluate_continuous_column(eval_data[col])
-            psi_values.append((col, psi_val, 'continuous', eval_data.dtypes.get(col)))
+            psi_values.append((col, psi_val, 'continuous', str(eval_data.dtypes.get(col))))
             results[col] = details
             logger.info(f'evaluated column {col}, PSI = {psi_val}')
         return psi_values, results

@@ -68,6 +68,11 @@ def pistachio_training_pipeline(
         .after(validate_test_data_task)\
         .set_display_name('preprocess test data')
 
+
+    #TODO - handle psi_values as metadata
+    # - do this in pipeline code. have a small component to read the detail json and create artifacts 
+    # of typekfp.dsl.Metric  and/or kfp.dsl.MarkDown
+
     
 
 pipeline_output_path = './pipeline_artifact/pistaciho_training_pipeline.yaml'   
