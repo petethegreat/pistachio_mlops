@@ -7,6 +7,8 @@
 #    tuning_cv_seed: int [Default: 73.0]
 #    tuning_opt_n_iter: int [Default: 200.0]
 # Outputs:
+#    evaluation-reporting-test_evaluation_metrics: system.ClassificationMetrics
+#    evaluation-reporting-train_evaluation_metrics: system.ClassificationMetrics
 #    psi-result-logging-psi_metrics: system.Metrics
 components:
   comp-evaluate-trained-model:
@@ -114,20 +116,27 @@ components:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
-        train_evalution_results_json:
+        train_evaluation_results_json:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
-          description: _description_
+        train_roc_curve_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
     outputDefinitions:
       artifacts:
         evaluation_markdown:
           artifactType:
             schemaTitle: system.Markdown
             schemaVersion: 0.0.1
-        evaluation_metrics:
+        test_evaluation_metrics:
           artifactType:
-            schemaTitle: system.SlicedClassificationMetrics
+            schemaTitle: system.ClassificationMetrics
+            schemaVersion: 0.0.1
+        train_evaluation_metrics:
+          artifactType:
+            schemaTitle: system.ClassificationMetrics
             schemaVersion: 0.0.1
   comp-hyperparameter-tuning:
     executorLabel: exec-hyperparameter-tuning
@@ -427,13 +436,16 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef evaluation_reporting(\n    train_evalution_results_json: Input[Artifact],\n\
+          \ *\n\ndef evaluation_reporting(\n    train_evaluation_results_json: Input[Artifact],\n\
           \    test_evaluation_results_json: Input[Artifact],\n    feature_importance_plot_png:\
-          \ Input[Artifact],\n    test_roc_curve_plot_png: Input[Artifact],\n    evaluation_markdown:\
-          \ Output[Markdown],\n    evaluation_metrics: Output[SlicedClassificationMetrics]\n\
-          \    ):\n    \"\"\"evaluation_reporting\n        Generate markdown output\
-          \ and log metrics from json files containing evaluation results\n\n\n  \
-          \  Args:\n        train_evalution_results_json (Input[Artifact]): _description_\n\
+          \ Input[Artifact],\n    train_roc_curve_plot_png: Input[Artifact],\n   \
+          \ test_roc_curve_plot_png: Input[Artifact],\n    evaluation_markdown: Output[Markdown],\n\
+          \    # evaluation_metrics: Output[SlicedClassificationMetrics] # SlicedClassificationMetrics\
+          \ is buggy\n    train_evaluation_metrics: Output[ClassificationMetrics],\n\
+          \    test_evaluation_metrics: Output[ClassificationMetrics],\n    ):\n \
+          \   \"\"\"evaluation_reporting\n        Generate markdown output and log\
+          \ metrics from json files containing evaluation results\n\n\n    Args:\n\
+          \        train_evalution_results_json (Input[Artifact]): _description_\n\
           \        test_evaluation_results_json (Input[Artifact]): _description_\n\
           \        feaure_importance_plot_png (Input[Artifact]): _description_\n \
           \       evaluation_markdown (Output[Markdown]): _description_\n        evaluation_metrics\
@@ -441,27 +453,38 @@ deploymentSpec:
           \   import json\n    import os\n    import logging\n    import sys\n\n \
           \   logger = logging.getLogger('pistachio.evaluation_reporting')\n    logging.basicConfig(stream=sys.stdout,\
           \ level=logging.DEBUG)\n\n\n    # load the json content\n    with open(test_evaluation_results_json.path,'r')\
-          \ as infile:\n        test_results = json.load(infile)\n\n    # setup a\
+          \ as infile:\n        test_results = json.load(infile)\n    with open(train_evaluation_results_json.path,'r')\
+          \ as infile:\n        train_results = json.load(infile)\n\n    # setup a\
           \ string for markdown content\n    # include a table header\n    markdown_content\
           \ = f\"# Pistachio Classifier Evaluation Results\\n\\n## Feature Importance\\\
           n\\n![Feature Importance png][{feature_importance_plot_png.uri}]\\n\\n\"\
           \n    # Population Stability Index evaluation\\n\\n{md_note}\\n\\n\" + \\\
           \n    #     \"| Column | Datatype | Missing Values | PSI |\\n|--------|----------|----------------|-----|\\\
-          n\"\n    markdown_content += '## Test Set Metrics\\n\\n| *Metric* | *Value*\
-          \ |\\n|--------|--------|\\n'\n\n    # test result metrics\n    for k,v\
-          \ in test_results['metrics'].items():\n\n        markdown_content += f'|\
-          \ {k} | {v} |\\n'\n\n    markdown_content += f'\\n ## Test Set ROC curve\\\
-          n\\n![Test Set ROC curve png][{test_roc_curve_plot_png.uri}]\\n\\n'\n\n\
-          \    # sliced metrics\n    evaluation_metrics._sliced_metrics = {}\n   \
-          \ # get roc curve definition\n    test_roc_curve_definition = [\n      \
-          \  test_results['roc_curve']['thresholds'],\n        test_results['roc_curve']['tpr'],\n\
-          \        test_results['roc_curve']['fpr']]\n\n    evaluation_metrics.load_roc_readings('test',\
-          \ test_roc_curve_definition)\n\n    # write markdown content\n    output_dir\
-          \ = os.path.dirname(psi_markdown.path)\n    if not os.path.exists(output_dir):\n\
-          \        os.makedirs(output_dir)\n    with open(psi_markdown.path,'w') as\
-          \ outfile:\n        outfile.write(markdown_content)\n        logger.info(f'markdown\
-          \ written to {psi_markdown.path}')\n    logger.info('done psi result logging')\n\
-          \n"
+          n\"\n\n\n    markdown_content += '## Train Set Metrics\\n\\n| *Metric* |\
+          \ *Value* |\\n|--------|--------|\\n'\n\n    # Train result metrics\n  \
+          \  for k,v in train_results['metrics'].items():\n        markdown_content\
+          \ += f'| {k} | {v} |\\n'\n        # try this\n        train_evaluation_metrics.metadata[k]\
+          \ = v\n\n\n    markdown_content += f'\\n ## Train Set ROC curve\\n\\n![Train\
+          \ Set ROC curve png][{train_roc_curve_plot_png.uri}]\\n\\n'\n\n    markdown_content\
+          \ += '## Test Set Metrics\\n\\n| *Metric* | *Value* |\\n|--------|--------|\\\
+          n'\n    # test result metrics\n    for k,v in test_results['metrics'].items():\n\
+          \        markdown_content += f'| {k} | {v} |\\n'\n        # try this\n \
+          \       test_evaluation_metrics.metadata[k] = v\n    markdown_content +=\
+          \ f'\\n ## Test Set ROC curve\\n\\n![Test Set ROC curve png][{test_roc_curve_plot_png.uri}]\\\
+          n\\n'\n\n    # sliced metrics - this is buggy at present\n    # evaluation_metrics._sliced_metrics\
+          \ = {}\n    # get roc curve definition\n\n    # test_roc_curve_definition\
+          \ = [\n    #     test_results['roc_curve']['thresholds'],\n    #     test_results['roc_curve']['tpr'],\n\
+          \    #     test_results['roc_curve']['fpr']]\n\n    # evaluation_metrics.load_roc_readings('test',\
+          \ test_roc_curve_definition)\n\n    test_evaluation_metrics.log_roc_curve(\n\
+          \        test_results['roc_curve']['fpr'],\n        test_results['roc_curve']['tpr'],\n\
+          \        test_results['roc_curve']['thresholds'])\n\n    train_evaluation_metrics.log_roc_curve(\n\
+          \        train_results['roc_curve']['fpr'],\n        train_results['roc_curve']['tpr'],\n\
+          \        train_results['roc_curve']['thresholds'])\n\n\n    # write markdown\
+          \ content\n    output_dir = os.path.dirname(evaluation_markdown.path)\n\
+          \    if not os.path.exists(output_dir):\n        os.makedirs(output_dir)\n\
+          \    with open(evaluation_markdown.path,'w') as outfile:\n        outfile.write(markdown_content)\n\
+          \        logger.info(f'markdown written to {evaluation_markdown.path}')\n\
+          \    logger.info('done model evaluation reporting')\n\n"
         image: python:3.11
     exec-hyperparameter-tuning:
       container:
@@ -628,6 +651,14 @@ root:
   dag:
     outputs:
       artifacts:
+        evaluation-reporting-test_evaluation_metrics:
+          artifactSelectors:
+          - outputArtifactKey: test_evaluation_metrics
+            producerSubtask: evaluation-reporting
+        evaluation-reporting-train_evaluation_metrics:
+          artifactSelectors:
+          - outputArtifactKey: train_evaluation_metrics
+            producerSubtask: evaluation-reporting
         psi-result-logging-psi_metrics:
           artifactSelectors:
           - outputArtifactKey: psi_metrics
@@ -717,9 +748,13 @@ root:
               taskOutputArtifact:
                 outputArtifactKey: roc_curve_plot_png
                 producerTask: evaluate-trained-model-2
-            train_evalution_results_json:
+            train_evaluation_results_json:
               taskOutputArtifact:
                 outputArtifactKey: metric_results_json
+                producerTask: evaluate-trained-model
+            train_roc_curve_plot_png:
+              taskOutputArtifact:
+                outputArtifactKey: roc_curve_plot_png
                 producerTask: evaluate-trained-model
         taskInfo:
           name: evaluation-reporting
@@ -936,6 +971,14 @@ root:
         parameterType: NUMBER_INTEGER
   outputDefinitions:
     artifacts:
+      evaluation-reporting-test_evaluation_metrics:
+        artifactType:
+          schemaTitle: system.ClassificationMetrics
+          schemaVersion: 0.0.1
+      evaluation-reporting-train_evaluation_metrics:
+        artifactType:
+          schemaTitle: system.ClassificationMetrics
+          schemaVersion: 0.0.1
       psi-result-logging-psi_metrics:
         artifactType:
           schemaTitle: system.Metrics
