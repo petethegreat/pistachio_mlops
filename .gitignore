@@ -1,0 +1,4 @@
+**/data
+!notebook/data/pistachio_16.snappy.pqt
+**/__pycache__
+**/.ipynb_checkpoints
