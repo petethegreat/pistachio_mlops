@@ -9,6 +9,7 @@ take a dataset and model artifact, generate metrics and plots
 from argparse import ArgumentParser
 from pistachio.data_handling import load_parquet_file, read_from_json, write_to_json
 from pistachio.model_evaluation import get_evaluation_metrics, plot_feature_importances, get_roc_results, plot_roc_curve
+from pistachio.model_evaluation import get_confusion_matrix, make_confusion_matrix_plot
 from pistachio.utils import ensure_directory_exists
 from pistachio.model_training import read_model_from_pickle
 import seaborn as sns
@@ -104,6 +105,9 @@ def evaluate_model_features(
     fpr, tpr, thresholds = get_roc_results(predicted_probabilities, dataset_binary_labels)
     metrics['roc_curve'] = {'fpr': fpr.tolist(), 'tpr': tpr.tolist(), 'thresholds': thresholds.tolist()}
 
+    conf_matrix = get_confusion_matrix(predicted_binary_labels, dataset_binary_labels)
+    metrics['confusion_matrix'] = conf_matrix
+
     write_to_json(metrics, metric_results_json)
 
     # feature importance plot
@@ -114,6 +118,18 @@ def evaluate_model_features(
     fig, ax = plot_roc_curve(fpr, tpr, thresholds, title=f'ROC curve - {dataset_desc}')
     fig.savefig(roc_curve_plot_png, format='png')
 
+    # confusion matrix
+    fig, ax = make_confusion_matrix_plot(
+        predicted_binary_labels, dataset_binary_labels,
+        title=f'confusion matrix {dataset_desc}',
+        class_names=['class_name_0', 'class_name_1']) # fix this
+
+    # save this
+
+
+
+    # PR plot
+    probability plot
 
     logger.info(f'model evaluation on {dataset_desc} done')
 
