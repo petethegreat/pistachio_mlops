@@ -65,23 +65,36 @@ def evaluate_model_features(
     metric_results_json: str,
     feature_importance_plot_png: str,
     roc_curve_plot_png: str,
+    confusion_matrix_plot_png: str,
+    pr_plot_png: str,
+    probability_plot_png: str,
     metric_prefix: str,
     dataset_desc: str,
+    n_bins_prob: int=50
     ):
     """evaluate model performance on a dataset
 
     Args:
-        dataset_path (str): _description_
-        model_pickle_path (str): _description_
-        featurelist_json (str): _description_
-        metric_prefix (str): _description_
-        dataset_desc (str): _description_
+        dataset_path (str): path to dataset
+        model_pickle_path (str): path to model artifact
+        features (List[str]): features needed by model
+        metric_results_json (str): path for evaluation metrics output json
+        feature_importance_plot_png (str): output path for feature importance plot
+        roc_curve_plot_png (str): output path for ROC curve plot
+        confusion_matrix_plot_png (str): output path for confusion matrix plot
+        pr_plot_png (str): output path for precision-recall plot
+        probability_plot_png (str): output path for probability calibration plot
+        metric_prefix (str): prefix for metric identifiers
+        dataset_desc (str): string describing dataset (e.g. train/validation/test)
+        n_bins_prob (int): number of bins to use in probability calibration plot
     """
+
 
     dataset = load_parquet_file(dataset_path)
     model = read_model_from_pickle(model_pickle_path)
 
-    for path in [metric_results_json, feature_importance_plot_png]:
+    for path in [metric_results_json, feature_importance_plot_png, roc_curve_plot_png, 
+        confusion_matrix_plot_png, pr_plot_png, probability_plot_png]:
         ensure_directory_exists(path)
 
     dataset_features = dataset[features]
@@ -119,17 +132,30 @@ def evaluate_model_features(
     fig.savefig(roc_curve_plot_png, format='png')
 
     # confusion matrix
+    class_names = [class_lookup[0], class_lookup[1]]
     fig, ax = make_confusion_matrix_plot(
         predicted_binary_labels, dataset_binary_labels,
         title=f'confusion matrix {dataset_desc}',
-        class_names=['class_name_0', 'class_name_1']) # fix this
-
-    # save this
-
-
+        class_names=class_names) 
+    fig.savefig(confusion_matrix_plot_png, format='png')
 
     # PR plot
-    probability plot
+    dataset_positive_response_rate = np.sum(dataset_binary_labels)/len(dataset_binary_labels)
+    fig, ax = make_precision_recall_plot(
+        predicted_probabilities,
+        dataset_binary_labels,
+        positive_rate=dataset_positive_response_rate,
+        title=f'Precision Recall Plot - {dataset_desc}')
+    fig.savefig(pr_plot_png, format='png')
+
+    # probability calibration
+
+    fig,ax = make_prob_calibration_plot(
+        predicted_probabilities,
+        dataset_binary_labels,
+        n_bins=n_bins_prob,
+        title=f'probability calibration - {dataset_desc}')
+    fig.savefig(probability_plot_png, format=png)
 
     logger.info(f'model evaluation on {dataset_desc} done')
 
@@ -147,6 +173,9 @@ def main():
     parser.add_argument('metric_results_json', type=str)
     parser.add_argument('feature_importance_plot_png', type=str)
     parser.add_argument('roc_curve_plot_png', type=str)
+    parser.add_argument('confusion_matrix_plot_png', type=str)
+    parser.add_argument('pr_plot_png', type=str)
+    parser.add_argument('probability_plot_png', type=str)
 
     parser.add_argument('--metric_prefix', type=str, default='dataset_metric_')
     parser.add_argument('--dataset_desc', type=str, default='dataset')
@@ -160,6 +189,9 @@ def main():
         metric_results_json=args.metric_results_json,
         feature_importance_plot_png=args.feature_importance_plot_png,
         roc_curve_plot_png=args.roc_curve_plot_png,
+        confusion_matrix_plot_png=confusion_matrix_plot_png,
+        pr_plot_png=pr_plot_png,
+        probability_plot_png=probability_plot_png,
         metric_prefix=args.metric_prefix,
         dataset_desc=args.dataset_desc)
   

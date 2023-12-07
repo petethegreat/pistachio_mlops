@@ -15,9 +15,12 @@ from sklearn.metrics import precision_recall_curve, average_precision_score
 import matplotlib.pyplot as plt
 import seaborn as sns
 import matplotlib as mpl
+import pandas as pd
 import numpy as np
+import statsmodels
+import scipy
 
-
+from statsmodels.stats.proportion import proportion_confint
 
 from xgboost import XGBClassifier
 
@@ -167,7 +170,7 @@ def make_confusion_matrix_plot(
     return fig, ax
 #################################################################
 
-def make_precision_recall_plot(predicted_probs, actual_classes, title: str="ROC curve", xlabel='False Positive Rate',ylabel: str='True Positive Rate',
+def make_precision_recall_plot(predicted_probs, actual_classes, title: str="Precision-Recall Curve", xlabel='Recall',ylabel: str='Precision',
                               positive_rate:float=None):
     """make a roc curve"""
     precision, recall, _ = precision_recall_curve(actual_classes, predicted_probs)
@@ -184,4 +187,47 @@ def make_precision_recall_plot(predicted_probs, actual_classes, title: str="ROC 
     ax.legend()
     # fig.show()
     return fig, ax
+###########################################################
+
+def make_prob_calibration_plot(predicted_probs, actual_classes, n_bins: int=20, alpha: float = 0.05, title:str = 'probability calibration'):
+    """bin records, check that proportion of labels in each bin matches mean probability of that bin"""
+    bins = pd.qcut(predicted_probs, n_bins, labels=False)
+    df = pd.DataFrame({'probability':predicted_probs, 'class':actual_classes, 'bin':bins})
+    df = df.sort_values(by='probability',ascending=False).reset_index(drop=True)
+    agged = df.groupby('bin').agg(
+        pred_prob=pd.NamedAgg('probability','mean'),
+        pred_std=pd.NamedAgg('probability','std'),
+        class_prob=pd.NamedAgg('class','mean'),
+        class_sum=pd.NamedAgg('class','sum'),
+        bin_size=pd.NamedAgg('class','count')
+    )
+    act_err_low, act_err_high = proportion_confint(agged.class_sum, agged.bin_size, method='wilson', alpha = alpha)
+    z_low = scipy.stats.norm.ppf(alpha/2)
+    z_high = scipy.stats.norm.ppf(1.0 - alpha/2)
+    agged['pred_low'] =  -z_low*agged['pred_std']/np.sqrt(agged['bin_size']) # agged['pred_prob'] +
+    agged['pred_high'] = z_high*agged['pred_std']/np.sqrt(agged['bin_size']) #+ agged['pred_prob'] + 
+    agged['actual_error_high'] = act_err_high  - agged.class_prob
+    agged['actual_error_low'] =  agged.class_prob - act_err_low
+    agged.loc[np.abs(agged.actual_error_high) < 1e-10, 'actual_error_high'] = 0
+    
+
+    # print(agged)
+    # print(agged)
+    fig = plt.figure()
+    ax = fig.add_axes([0.1,0.1, 0.8, 0.8])
+    ax.errorbar(
+        agged.pred_prob, 
+        agged.class_prob, 
+        yerr=[agged.actual_error_low, agged.actual_error_high], 
+        xerr=[agged.pred_low,agged.pred_high],
+        fmt='.', 
+        color=sns.xkcd_rgb['blurple'])
+    ax.plot([0.0,1.0],[0.0,1.0],'--',label='ideal', color=sns.xkcd_rgb['dark blue'])
+    ax.set_title(title)
+    ax.set_xlabel('predicted probability')
+    ax.set_ylabel('observed probabiilty')
+    return fig, ax
+    
+    
+    
 
