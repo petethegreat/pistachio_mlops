@@ -7,7 +7,7 @@ from kfp import dsl
 from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model, SlicedClassificationMetrics, ClassificationMetrics
 from typing import List, Dict, Tuple
 from kfp.dsl import ConcatPlaceholder
-import yaml 
+import yaml
 
 CONFIG_FILE_PATH = '../config/config.yaml'
 
@@ -252,6 +252,9 @@ def evaluate_trained_model(
     metric_results_json: Output[Artifact],
     feature_importance_plot_png: Output[Artifact],
     roc_curve_plot_png: Output[Artifact],
+    confusion_matrix_plot_png: Output[Artifact],
+    pr_plot_png: Output[Artifact],
+    probability_plot_png: Output[Artifact],
     metric_prefix: str='metric_',
     dataset_desc: str='dataset'
     ) -> None:
@@ -275,6 +278,9 @@ def evaluate_trained_model(
     metric_results_json.path = metric_results_json.path + '.json'
     feature_importance_plot_png.path = feature_importance_plot_png.path + '.png'
     roc_curve_plot_png.path = roc_curve_plot_png.path + '.png'
+    confusion_matrix_plot_png.path = confusion_matrix_plot_png.path + '.png'
+    pr_plot_png.path = pr_plot_png.path + '.png'
+    probability_plot_png.path = probability_plot_png.path + '.png'
 
     evaluate_model_features(
     dataset_path=dataset.path,
@@ -283,6 +289,9 @@ def evaluate_trained_model(
     metric_results_json=metric_results_json.path,
     feature_importance_plot_png=feature_importance_plot_png.path,
     roc_curve_plot_png=roc_curve_plot_png.path,
+    confusion_matrix_plot_png=confusion_matrix_plot_png.path,
+    pr_plot_png=pr_plot_png.path,
+    probability_plot_png=probability_plot_png.path,
     metric_prefix=metric_prefix,
     dataset_desc=dataset_desc)
 #############################################################################
@@ -378,14 +387,20 @@ def evaluation_reporting(
     #     train_results['roc_curve']['thresholds'])
 
     # dummy roc data
-    fpr = [ 0.0, 0.0, 0.0, 1.0]
-    tpr = [0.0, 0.5, 1.0, 1.0]
-    thresholds = [sys.float_info.max, 0.99, 0.8, 0.01] # infinity is an issue
+    # fpr = [ 0.0, 0.0, 0.0, 1.0]
+    # tpr = [0.0, 0.5, 1.0, 1.0]
+    # thresholds = [sys.float_info.max, 0.99, 0.8, 0.01] # infinity is an issue
     # test_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)
-    train_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)
+    # train_evaluation_metrics.log_roc_curve(fpr, tpr, thresholds)
+    train_results['roc_curve']['thresholds'][0] = 1.0e9
 
-    
-    
+    train_evaluation_metrics.log_roc_curve(
+        train_results['roc_curve']['fpr'],
+        train_results['roc_curve']['tpr'],
+        train_results['roc_curve']['thresholds'])
+
+
+
     # write markdown content
     output_dir = os.path.dirname(evaluation_markdown.path)
     if not os.path.exists(output_dir):
@@ -418,9 +433,9 @@ def psi_result_logging(
     Returns:
         dsl.ContainerSpec: component definition
     """
-    
+
     psi_markdown.path = psi_markdown.path + '.md'
-    
+
     import json
     import os
     import logging
@@ -432,7 +447,7 @@ def psi_result_logging(
     # load the json content
     with open(psi_results_json.path,'r') as infile:
         psi_details = json.load(infile)
-    
+
     # setup a string for markdown content
     # include a table header
     markdown_content = f"# PSI results\nPopulation Stability Index evaluation\n\n{md_note}\n\n" + \
@@ -454,7 +469,7 @@ def psi_result_logging(
             logger.info(f'logged {metric_name} to metrics')
         except Exception as e:
             logger.warning(f'could not log {metric_name} with value "{psi_value}" ')
-        
+
     # write markdown content
     output_dir = os.path.dirname(psi_markdown.path)
     if not os.path.exists(output_dir):

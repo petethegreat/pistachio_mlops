@@ -38,11 +38,23 @@ components:
           parameterType: STRING
     outputDefinitions:
       artifacts:
+        confusion_matrix_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
         feature_importance_plot_png:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
         metric_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        pr_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        probability_plot_png:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
@@ -77,11 +89,23 @@ components:
           parameterType: STRING
     outputDefinitions:
       artifacts:
+        confusion_matrix_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
         feature_importance_plot_png:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
         metric_results_json:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        pr_plot_png:
+          artifactType:
+            schemaTitle: system.Artifact
+            schemaVersion: 0.0.1
+        probability_plot_png:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
@@ -429,28 +453,33 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef evaluate_trained_model(\n    dataset: Input[Dataset],\n    model_pickle:\
           \ Input[Model],\n    metric_results_json: Output[Artifact],\n    feature_importance_plot_png:\
-          \ Output[Artifact],\n    roc_curve_plot_png: Output[Artifact],\n    metric_prefix:\
-          \ str='metric_',\n    dataset_desc: str='dataset'\n    ) -> None:\n    \"\
-          \"\"evaluate trained model on specified dataset\n\n    Args:\n        dataset\
-          \ (Input[Dataset]): dataset to be used for model inference\n        model_pickle\
-          \ (Input[Model]): pickle file containing pistachio XGBClassifier\n     \
-          \   metric_results_json (Output[Artifact]): location where evaluation metrics\
-          \ will be written (as json)\n        feature_importance_plot_png (Output[Artifact]):\
-          \ path where feature importance plot will be written as png\n        roc_curve_plot_png\
-          \ (Output[Artifact]): path where roc curve plot will be written as png\n\
-          \        metric_prefix (str, optional): string added as a prefix to metric\
-          \ keys. Defaults to 'metric_'.\n        dataset_desc (str, optional): dataset\
-          \ description, used in plot titles. Defaults to 'dataset'.\n\n    Returns:\n\
-          \       None\n    \"\"\"\n    from evaluate_model import evaluate_model_features\n\
-          \    features = dataset.metadata['features']\n\n    metric_results_json.path\
-          \ = metric_results_json.path + '.json'\n    feature_importance_plot_png.path\
-          \ = feature_importance_plot_png.path + '.png'\n    roc_curve_plot_png.path\
-          \ = roc_curve_plot_png.path + '.png'\n\n    evaluate_model_features(\n \
-          \   dataset_path=dataset.path,\n    model_pickle_path=model_pickle.path,\n\
+          \ Output[Artifact],\n    roc_curve_plot_png: Output[Artifact],\n    confusion_matrix_plot_png:\
+          \ Output[Artifact],\n    pr_plot_png: Output[Artifact],\n    probability_plot_png:\
+          \ Output[Artifact],\n    metric_prefix: str='metric_',\n    dataset_desc:\
+          \ str='dataset'\n    ) -> None:\n    \"\"\"evaluate trained model on specified\
+          \ dataset\n\n    Args:\n        dataset (Input[Dataset]): dataset to be\
+          \ used for model inference\n        model_pickle (Input[Model]): pickle\
+          \ file containing pistachio XGBClassifier\n        metric_results_json (Output[Artifact]):\
+          \ location where evaluation metrics will be written (as json)\n        feature_importance_plot_png\
+          \ (Output[Artifact]): path where feature importance plot will be written\
+          \ as png\n        roc_curve_plot_png (Output[Artifact]): path where roc\
+          \ curve plot will be written as png\n        metric_prefix (str, optional):\
+          \ string added as a prefix to metric keys. Defaults to 'metric_'.\n    \
+          \    dataset_desc (str, optional): dataset description, used in plot titles.\
+          \ Defaults to 'dataset'.\n\n    Returns:\n       None\n    \"\"\"\n    from\
+          \ evaluate_model import evaluate_model_features\n    features = dataset.metadata['features']\n\
+          \n    metric_results_json.path = metric_results_json.path + '.json'\n  \
+          \  feature_importance_plot_png.path = feature_importance_plot_png.path +\
+          \ '.png'\n    roc_curve_plot_png.path = roc_curve_plot_png.path + '.png'\n\
+          \    confusion_matrix_plot_png.path = confusion_matrix_plot_png.path + '.png'\n\
+          \    pr_plot_png.path = pr_plot_png.path + '.png'\n    probability_plot_png.path\
+          \ = probability_plot_png.path + '.png'\n\n    evaluate_model_features(\n\
+          \    dataset_path=dataset.path,\n    model_pickle_path=model_pickle.path,\n\
           \    features=features,\n    metric_results_json=metric_results_json.path,\n\
           \    feature_importance_plot_png=feature_importance_plot_png.path,\n   \
-          \ roc_curve_plot_png=roc_curve_plot_png.path,\n    metric_prefix=metric_prefix,\n\
-          \    dataset_desc=dataset_desc)\n\n"
+          \ roc_curve_plot_png=roc_curve_plot_png.path,\n    confusion_matrix_plot_png=confusion_matrix_plot_png.path,\n\
+          \    pr_plot_png=pr_plot_png.path,\n    probability_plot_png=probability_plot_png.path,\n\
+          \    metric_prefix=metric_prefix,\n    dataset_desc=dataset_desc)\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-evaluate-trained-model-2:
       container:
@@ -480,28 +509,33 @@ deploymentSpec:
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef evaluate_trained_model(\n    dataset: Input[Dataset],\n    model_pickle:\
           \ Input[Model],\n    metric_results_json: Output[Artifact],\n    feature_importance_plot_png:\
-          \ Output[Artifact],\n    roc_curve_plot_png: Output[Artifact],\n    metric_prefix:\
-          \ str='metric_',\n    dataset_desc: str='dataset'\n    ) -> None:\n    \"\
-          \"\"evaluate trained model on specified dataset\n\n    Args:\n        dataset\
-          \ (Input[Dataset]): dataset to be used for model inference\n        model_pickle\
-          \ (Input[Model]): pickle file containing pistachio XGBClassifier\n     \
-          \   metric_results_json (Output[Artifact]): location where evaluation metrics\
-          \ will be written (as json)\n        feature_importance_plot_png (Output[Artifact]):\
-          \ path where feature importance plot will be written as png\n        roc_curve_plot_png\
-          \ (Output[Artifact]): path where roc curve plot will be written as png\n\
-          \        metric_prefix (str, optional): string added as a prefix to metric\
-          \ keys. Defaults to 'metric_'.\n        dataset_desc (str, optional): dataset\
-          \ description, used in plot titles. Defaults to 'dataset'.\n\n    Returns:\n\
-          \       None\n    \"\"\"\n    from evaluate_model import evaluate_model_features\n\
-          \    features = dataset.metadata['features']\n\n    metric_results_json.path\
-          \ = metric_results_json.path + '.json'\n    feature_importance_plot_png.path\
-          \ = feature_importance_plot_png.path + '.png'\n    roc_curve_plot_png.path\
-          \ = roc_curve_plot_png.path + '.png'\n\n    evaluate_model_features(\n \
-          \   dataset_path=dataset.path,\n    model_pickle_path=model_pickle.path,\n\
+          \ Output[Artifact],\n    roc_curve_plot_png: Output[Artifact],\n    confusion_matrix_plot_png:\
+          \ Output[Artifact],\n    pr_plot_png: Output[Artifact],\n    probability_plot_png:\
+          \ Output[Artifact],\n    metric_prefix: str='metric_',\n    dataset_desc:\
+          \ str='dataset'\n    ) -> None:\n    \"\"\"evaluate trained model on specified\
+          \ dataset\n\n    Args:\n        dataset (Input[Dataset]): dataset to be\
+          \ used for model inference\n        model_pickle (Input[Model]): pickle\
+          \ file containing pistachio XGBClassifier\n        metric_results_json (Output[Artifact]):\
+          \ location where evaluation metrics will be written (as json)\n        feature_importance_plot_png\
+          \ (Output[Artifact]): path where feature importance plot will be written\
+          \ as png\n        roc_curve_plot_png (Output[Artifact]): path where roc\
+          \ curve plot will be written as png\n        metric_prefix (str, optional):\
+          \ string added as a prefix to metric keys. Defaults to 'metric_'.\n    \
+          \    dataset_desc (str, optional): dataset description, used in plot titles.\
+          \ Defaults to 'dataset'.\n\n    Returns:\n       None\n    \"\"\"\n    from\
+          \ evaluate_model import evaluate_model_features\n    features = dataset.metadata['features']\n\
+          \n    metric_results_json.path = metric_results_json.path + '.json'\n  \
+          \  feature_importance_plot_png.path = feature_importance_plot_png.path +\
+          \ '.png'\n    roc_curve_plot_png.path = roc_curve_plot_png.path + '.png'\n\
+          \    confusion_matrix_plot_png.path = confusion_matrix_plot_png.path + '.png'\n\
+          \    pr_plot_png.path = pr_plot_png.path + '.png'\n    probability_plot_png.path\
+          \ = probability_plot_png.path + '.png'\n\n    evaluate_model_features(\n\
+          \    dataset_path=dataset.path,\n    model_pickle_path=model_pickle.path,\n\
           \    features=features,\n    metric_results_json=metric_results_json.path,\n\
           \    feature_importance_plot_png=feature_importance_plot_png.path,\n   \
-          \ roc_curve_plot_png=roc_curve_plot_png.path,\n    metric_prefix=metric_prefix,\n\
-          \    dataset_desc=dataset_desc)\n\n"
+          \ roc_curve_plot_png=roc_curve_plot_png.path,\n    confusion_matrix_plot_png=confusion_matrix_plot_png.path,\n\
+          \    pr_plot_png=pr_plot_png.path,\n    probability_plot_png=probability_plot_png.path,\n\
+          \    metric_prefix=metric_prefix,\n    dataset_desc=dataset_desc)\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-evaluation-reporting:
       container:
@@ -574,11 +608,14 @@ deploymentSpec:
           \        test_results['roc_curve']['tpr'],\n        test_results['roc_curve']['thresholds'])\n\
           \n    # train_evaluation_metrics.log_roc_curve(\n    #     train_results['roc_curve']['fpr'],\n\
           \    #     train_results['roc_curve']['tpr'],\n    #     train_results['roc_curve']['thresholds'])\n\
-          \n    # dummy roc data\n    fpr = [ 0.0, 0.0, 0.0, 1.0]\n    tpr = [0.0,\
-          \ 0.5, 1.0, 1.0]\n    thresholds = [sys.float_info.max, 0.99, 0.8, 0.01]\
+          \n    # dummy roc data\n    # fpr = [ 0.0, 0.0, 0.0, 1.0]\n    # tpr = [0.0,\
+          \ 0.5, 1.0, 1.0]\n    # thresholds = [sys.float_info.max, 0.99, 0.8, 0.01]\
           \ # infinity is an issue\n    # test_evaluation_metrics.log_roc_curve(fpr,\
-          \ tpr, thresholds)\n    train_evaluation_metrics.log_roc_curve(fpr, tpr,\
-          \ thresholds)\n\n\n\n    # write markdown content\n    output_dir = os.path.dirname(evaluation_markdown.path)\n\
+          \ tpr, thresholds)\n    # train_evaluation_metrics.log_roc_curve(fpr, tpr,\
+          \ thresholds)\n    train_results['roc_curve']['thresholds'][0] = 1.0e9\n\
+          \n    train_evaluation_metrics.log_roc_curve(\n        train_results['roc_curve']['fpr'],\n\
+          \        train_results['roc_curve']['tpr'],\n        train_results['roc_curve']['thresholds'])\n\
+          \n\n\n    # write markdown content\n    output_dir = os.path.dirname(evaluation_markdown.path)\n\
           \    if not os.path.exists(output_dir):\n        os.makedirs(output_dir)\n\
           \    with open(evaluation_markdown.path,'w') as outfile:\n        outfile.write(markdown_content)\n\
           \        logger.info(f'markdown written to {evaluation_markdown.path}')\n\

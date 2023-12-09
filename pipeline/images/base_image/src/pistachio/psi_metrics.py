@@ -239,7 +239,7 @@ class PSImetrics(FeatureMetric):
         return psi, details
 
 
-    def fit(self, reference_data: pd.DataFrame):
+    def fit(self, reference_data: pd.DataFrame, **kwargs):
         """learn parameters of data distribution"""
 
         # only infer if no categorical/continuous columns are specified, and flag is True

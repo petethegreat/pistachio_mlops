@@ -11,10 +11,9 @@ from sklearn.metrics import roc_auc_score, precision_score, recall_score, f1_sco
 from sklearn.metrics import confusion_matrix
 from sklearn.metrics import precision_recall_curve, average_precision_score
 
-
+import matplotlib as mpl
 import matplotlib.pyplot as plt
 import seaborn as sns
-import matplotlib as mpl
 import pandas as pd
 import numpy as np
 import statsmodels
@@ -23,6 +22,7 @@ import scipy
 from statsmodels.stats.proportion import proportion_confint
 
 from xgboost import XGBClassifier
+logger = logging.getLogger(__name__)
 
 def get_evaluation_metrics(predicted_probs, predicted_classes, actual_classes, prefix=None):
     """evaluate results"""
@@ -33,6 +33,7 @@ def get_evaluation_metrics(predicted_probs, predicted_classes, actual_classes, p
     results[f"{prefix}recall_score"] = recall_score(actual_classes, predicted_classes)
     results[f"{prefix}f1_score"] = f1_score(actual_classes, predicted_classes)
     results[f"{prefix}accuracy_score"] = accuracy_score(actual_classes, predicted_classes)
+    logger.info("got evaluation metrics")
     return results
 
 def get_roc_results(predicted_probs: List[float], actual_classes: List[float]) -> Tuple[List[float],List[float],List[float]]:
@@ -80,7 +81,7 @@ def plot_roc_curve(fpr, tpr, thresholds, title: str="ROC curve", xlabel='False P
 #################################################################
 
 def plot_feature_importances(model: XGBClassifier, title: str = 'feature importances'):
-    feature_importances = [(k,v) for k,v in model.get_booster().get_score(importance_type='gain').items()]
+    feature_importances = list(model.get_booster().get_score(importance_type='gain').items())
     feature_importances.sort(key = lambda x: x[1], reverse=True)
     feats, importances = zip(*feature_importances)
     cmap  = sns.color_palette("viridis", as_cmap=True)
@@ -114,7 +115,7 @@ def make_roc_plot(predicted_probs, actual_classes, title: str="ROC curve", xlabe
     return fig, ax
 #################################################################
 
-def get_confusion_matrix(predicted_classes, actual_classes, normalise=False):
+def get_confusion_matrix(predicted_classes, actual_classes, normalise=None):
     """get confusion matrix
     computes confusion matrix for binary classification
 
@@ -147,7 +148,7 @@ def make_confusion_matrix_plot(
     cmap = sns.light_palette("indigo", as_cmap=True)
 
     # cmap = 'viridis'
-    
+
     matrix = confusion_matrix(actual_classes,predicted_classes, normalize=normalise)
     ax.imshow(matrix, cmap=cmap)
     for i in range(matrix.shape[0]):
@@ -180,7 +181,7 @@ def make_precision_recall_plot(predicted_probs, actual_classes, title: str="Prec
     ax.plot(recall, precision, color=sns.xkcd_rgb['blurple'], label=f'precision recall curve (average precision = {classifier_average_precision:0.3f}')
     if positive_rate:
         ax.plot([0.0, 1.0],[positive_rate, positive_rate], color=sns.xkcd_rgb['merlot'], linestyle='--', label=f'positive response rate = {positive_rate:0.3f}')
-    
+
     ax.set_xlabel('Recall')
     ax.set_ylabel('Precision')
     ax.set_title(title)
@@ -205,29 +206,29 @@ def make_prob_calibration_plot(predicted_probs, actual_classes, n_bins: int=20, 
     z_low = scipy.stats.norm.ppf(alpha/2)
     z_high = scipy.stats.norm.ppf(1.0 - alpha/2)
     agged['pred_low'] =  -z_low*agged['pred_std']/np.sqrt(agged['bin_size']) # agged['pred_prob'] +
-    agged['pred_high'] = z_high*agged['pred_std']/np.sqrt(agged['bin_size']) #+ agged['pred_prob'] + 
-    agged['actual_error_high'] = act_err_high  - agged.class_prob
-    agged['actual_error_low'] =  agged.class_prob - act_err_low
+    agged['pred_high'] = z_high*agged['pred_std']/np.sqrt(agged['bin_size']) #+ agged['pred_prob'] +
+    agged['actual_error_high'] = np.maximum(act_err_high  - agged.class_prob,0)
+    agged['actual_error_low'] =  np.maximum(agged.class_prob - act_err_low,0)
     agged.loc[np.abs(agged.actual_error_high) < 1e-10, 'actual_error_high'] = 0
-    
+
 
     # print(agged)
     # print(agged)
     fig = plt.figure()
     ax = fig.add_axes([0.1,0.1, 0.8, 0.8])
     ax.errorbar(
-        agged.pred_prob, 
-        agged.class_prob, 
-        yerr=[agged.actual_error_low, agged.actual_error_high], 
+        agged.pred_prob,
+        agged.class_prob,
+        yerr=[agged.actual_error_low, agged.actual_error_high],
         xerr=[agged.pred_low,agged.pred_high],
-        fmt='.', 
+        fmt='.',
         color=sns.xkcd_rgb['blurple'])
     ax.plot([0.0,1.0],[0.0,1.0],'--',label='ideal', color=sns.xkcd_rgb['dark blue'])
     ax.set_title(title)
     ax.set_xlabel('predicted probability')
     ax.set_ylabel('observed probabiilty')
     return fig, ax
-    
-    
-    
+
+
+
 
