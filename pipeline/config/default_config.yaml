@@ -5,5 +5,7 @@ artifact_registry: THE_ARTIFACT_REGISTRY
 gcs_bucket: THE_STORAGE_BUCKET
 pipeline_name: pistachio_pipeline
 base_image_name: pistachio_base:0.01
+vertex_image_name: pistachio_gcp_aip:0.01
+
 
 

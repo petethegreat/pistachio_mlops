@@ -14,9 +14,12 @@ CONFIG_FILE_PATH = '../config/config.yaml'
 with open(CONFIG_FILE_PATH,'r') as config_file:
     CONFIG = yaml.safe_load(config_file)
 
-artifact_registry = CONFIG.get('artifact_registry','the_artifact_registry')
-base_image_name = CONFIG.get('base_image_name','the_base_image:0.0.0')
+artifact_registry = CONFIG.get('artifact_registry', 'the_artifact_registry')
+base_image_name = CONFIG.get('base_image_name', 'the_base_image:0.0.0')
+
 base_image_location = f'{artifact_registry}/{base_image_name}'
+vertex_image_name = CONFIG.get('vertex_image_name','the_vertex_image:0.0.0')
+vertex_image_location = f'{artifact_registry}/{vertex_image_name}'
 
 
 #############################################################################
@@ -479,5 +482,13 @@ def psi_result_logging(
         logger.info(f'markdown written to {psi_markdown.path}')
     logger.info('done psi result logging')
 #############################################################################
+
+@dsl.component(base_image=vertex_image_location)
+def upload_model_to_registry():
+    """upload model to vertex ai model registry"""
+    # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.0.0/api/v1/model.html#v1.model.ModelUploadOp
+    # https://github.com/GoogleCloudPlatform/vertex-ai-samples/blob/main/notebooks/official/pipelines/google_cloud_pipeline_components_model_train_upload_deploy.ipynb
+    # https://cloud.google.com/vertex-ai/docs/model-registry/import-model#import_a_model_programmatically
+
 
 
