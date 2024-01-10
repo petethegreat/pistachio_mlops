@@ -8,6 +8,9 @@ from kfp import dsl
 from kfp import compiler
 from kfp.registry import RegistryClient
 
+from google_cloud_pipeline_components.types import artifact_types
+from google_cloud_pipeline_components.v1.model import ModelUploadOp
+
 # from container_components import hyperparameter_tuning  load_data, preprocess_data, validate_data, train_monitoring
 # from container_components import train_final_model, evaluate_trained_model, infer_monitoring
 from components import load_data, validate_data, preprocess_data, train_monitoring, infer_monitoring, hyperparameter_tuning
@@ -27,7 +30,14 @@ pipeline_root = f'gs://{bucket_name}/pistachio_pipeline_root'
 pipeline_name = CONFIG.get('training_pipeline_name','the_pipeline_name')
 schema_file_path = f"/gcs/{bucket_name}/pipeline_resources/pistachio_schema.json"
 arff_file_path = f"/gcs/{bucket_name}/pipeline_resources/Pistachio_16_Features_Dataset.arff"
+project_id = CONFIG.get('project_id','the_project_id'),
 stratify_column_name = 'Class'
+
+# need this for the importer op - needs the image uri
+artifact_registry = CONFIG.get('artifact_registry', 'the_artifact_registry')
+base_image_name = CONFIG.get('base_image_name', 'the_base_image:0.0.0')
+base_image_location = f'{artifact_registry}/{base_image_name}'
+
 
 @dsl.pipeline(
     name='pistachio_training_pipeline',
@@ -37,7 +47,8 @@ def pistachio_training_pipeline(
     train_test_split_seed: int=37,
     test_split_data_fraction: float=0.2,
     tuning_cv_seed: int=73,
-    tuning_opt_n_iter: int=200
+    tuning_opt_n_iter: int=200,
+    project_id: str=project_id
     ):
     """training pipeline
 
@@ -99,7 +110,45 @@ def pistachio_training_pipeline(
         optimal_parameters_json=hyperparameter_tune_task.outputs["optimal_parameters_json"],
     ).set_display_name('model training')
 
+    # import model artifact
+    # load the model artifact as an artifact of type google vertex model
+    # mainly, this defines containerspec, and predict/health roots for google vertex model
 
+    model_artifact_import_task = dsl.importer(
+        artifact_uri=model_train_task.outputs['model_pickle'],
+        artifact_class=artifact_types.UnmanagedContainerModel,
+        metadata={
+            'containerSpec': { 
+                'imageUri': base_image_location,
+                'command': ['./serve_predictions.py'],
+                # 'args': []
+                # 'env': []
+                # 'ports': [],
+                "predictRoute": "/predict",
+                "healthRoute": "/health"
+            }
+        },
+        reimport=False)\
+        .set_display_name('cast_model_artifact')\
+        .after(model_train_task)
+
+    # try this
+    model_upload_task = ModelUploadOp(
+        project=project_id,
+        display_name='upload_model_to_registry',
+        description='model for pistachio classification',
+        # model_id='pistachio_classifier_model',
+        labels={'model_name': 'pistachio_classifier_model'},
+        # parent_model=PARENT_MODEL_ID
+        unmanaged_container_model=model_artifact_import_task.outputs['artifact']
+    )
+    # may need to export then import?
+    # uris/paths are defined at pipeline runtime (input/soutputs)
+    # the importer needs a string for uri, not a placeholder.
+    # unless this is done inside a component defn?
+    # Can we call constructor for unmanagedcontainermodel using the artifact uri?
+    # components can be nested, pipelines can go in pipelines.
+    
 
 
         # evaluate on train data task 

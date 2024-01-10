@@ -483,12 +483,16 @@ def psi_result_logging(
     logger.info('done psi result logging')
 #############################################################################
 
-@dsl.component(base_image=vertex_image_location)
-def upload_model_to_registry():
-    """upload model to vertex ai model registry"""
-    # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.0.0/api/v1/model.html#v1.model.ModelUploadOp
-    # https://github.com/GoogleCloudPlatform/vertex-ai-samples/blob/main/notebooks/official/pipelines/google_cloud_pipeline_components_model_train_upload_deploy.ipynb
-    # https://cloud.google.com/vertex-ai/docs/model-registry/import-model#import_a_model_programmatically
+# @dsl.component(base_image=vertex_image_location)
+# def upload_model_to_registry(artifact=):
+#     """upload model to vertex ai model registry"""
+#     # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.0.0/api/v1/model.html#v1.model.ModelUploadOp
+#     # https://github.com/GoogleCloudPlatform/vertex-ai-samples/blob/main/notebooks/official/pipelines/google_cloud_pipeline_components_model_train_upload_deploy.ipynb
+#     # https://cloud.google.com/vertex-ai/docs/model-registry/import-model#import_a_model_programmatically
+
+
+
+
 
 
 
