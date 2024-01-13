@@ -5,4 +5,7 @@ training_pipeline_name: pistachio_training_pipeline
 base_image_name: pistachio_base:0.0.1
 vertex_image_name: pistachio_gcp_aip:0.0.1
 pipeline_registry: https://northamerica-northeast2-kfp.pkg.dev/pistachio-mlops-sbx/pistachio-pipeline
+model_registry_name: pistachio_classifier
+model_registry_location: northamerica-northeast2
+
 

@@ -14,7 +14,7 @@ from google_cloud_pipeline_components.v1.model import ModelUploadOp
 # from container_components import hyperparameter_tuning  load_data, preprocess_data, validate_data, train_monitoring
 # from container_components import train_final_model, evaluate_trained_model, infer_monitoring
 from components import load_data, validate_data, preprocess_data, train_monitoring, infer_monitoring, hyperparameter_tuning
-from components import train_final_model, evaluate_trained_model 
+from components import train_final_model, evaluate_trained_model, upload_model_to_registry
 from components import  evaluation_reporting, psi_result_logging
 
 import yaml
@@ -30,13 +30,16 @@ pipeline_root = f'gs://{bucket_name}/pistachio_pipeline_root'
 pipeline_name = CONFIG.get('training_pipeline_name','the_pipeline_name')
 schema_file_path = f"/gcs/{bucket_name}/pipeline_resources/pistachio_schema.json"
 arff_file_path = f"/gcs/{bucket_name}/pipeline_resources/Pistachio_16_Features_Dataset.arff"
-project_id = CONFIG.get('project_id','the_project_id'),
+project_id = CONFIG.get('project_id', 'the_project_id')
 stratify_column_name = 'Class'
 
+# name to use in registry
+model_name = CONFIG.get('model_registry_name','pistachio_classifier')
+model_registry_location = CONFIG.get('model_registry_location','the_gcp_location')
 # need this for the importer op - needs the image uri
-artifact_registry = CONFIG.get('artifact_registry', 'the_artifact_registry')
-base_image_name = CONFIG.get('base_image_name', 'the_base_image:0.0.0')
-base_image_location = f'{artifact_registry}/{base_image_name}'
+# artifact_registry = CONFIG.get('artifact_registry', 'the_artifact_registry')
+# base_image_name = CONFIG.get('base_image_name', 'the_base_image:0.0.0')
+# base_image_location = f'{artifact_registry}/{base_image_name}'
 
 
 @dsl.pipeline(
@@ -110,46 +113,54 @@ def pistachio_training_pipeline(
         optimal_parameters_json=hyperparameter_tune_task.outputs["optimal_parameters_json"],
     ).set_display_name('model training')
 
+    # This is a headache.
+    # train task outputs artifact[Model]
+    # modelUploadOp wants an input of type Input[UnmanagedContainerModel]
+    # can't automatically cast.
+    # can import/export the model, but that needs uris/paths to be defined ahead of time (not just Outputs)
+    # Could get around it by using a pipeline as a component - have a mini pipeline that takes uri as string and imports and uploads, then feed the Output[Model].uri to that
+    
+    # easier to just write a component using aiplatform package/functions
+
     # import model artifact
     # load the model artifact as an artifact of type google vertex model
     # mainly, this defines containerspec, and predict/health roots for google vertex model
 
-    model_artifact_import_task = dsl.importer(
-        artifact_uri=model_train_task.outputs['model_pickle'],
-        artifact_class=artifact_types.UnmanagedContainerModel,
-        metadata={
-            'containerSpec': { 
-                'imageUri': base_image_location,
-                'command': ['./serve_predictions.py'],
-                # 'args': []
-                # 'env': []
-                # 'ports': [],
-                "predictRoute": "/predict",
-                "healthRoute": "/health"
-            }
-        },
-        reimport=False)\
-        .set_display_name('cast_model_artifact')\
-        .after(model_train_task)
+    # model_artifact_import_task = dsl.importer(
+    #     artifact_uri=model_train_task.outputs['model_pickle'],
+    #     artifact_class=artifact_types.UnmanagedContainerModel,
+    #     metadata={
+    #         'containerSpec': { 
+    #             'imageUri': base_image_location,
+    #             'command': ['./serve_predictions.py'],
+    #             # 'args': []
+    #             # 'env': []
+    #             # 'ports': [],
+    #             "predictRoute": "/predict",
+    #             "healthRoute": "/health"
+    #         }
+    #     },
+    #     reimport=False)\
+    #     .set_display_name('cast_model_artifact')\
+    #     .after(model_train_task)
 
-    # try this
-    model_upload_task = ModelUploadOp(
-        project=project_id,
-        display_name='upload_model_to_registry',
-        description='model for pistachio classification',
-        # model_id='pistachio_classifier_model',
-        labels={'model_name': 'pistachio_classifier_model'},
-        # parent_model=PARENT_MODEL_ID
-        unmanaged_container_model=model_artifact_import_task.outputs['artifact']
-    )
-    # may need to export then import?
-    # uris/paths are defined at pipeline runtime (input/soutputs)
-    # the importer needs a string for uri, not a placeholder.
-    # unless this is done inside a component defn?
-    # Can we call constructor for unmanagedcontainermodel using the artifact uri?
-    # components can be nested, pipelines can go in pipelines.
-    
+    # # try this
+    # model_upload_task = ModelUploadOp(
+    #     project=project_id,
+    #     display_name='upload_model_to_registry',
+    #     description='model for pistachio classification',
+    #     # model_id='pistachio_classifier_model',
+    #     labels={'model_name': 'pistachio_classifier_model'},
+    #     # parent_model=PARENT_MODEL_ID
+    #     unmanaged_container_model=model_train_task.outputs['model_pickle']
+    # )
 
+    upload_task = upload_model_to_registry(
+        project_id=project_id,
+        model_name=model_name,
+        model_registry_location=model_registry_location,
+        model=model_train_task.outputs['model_pickle'])\
+            .set_display_name('upload_model_to_registry')
 
         # evaluate on train data task 
     evaluate_on_train_task = evaluate_trained_model(

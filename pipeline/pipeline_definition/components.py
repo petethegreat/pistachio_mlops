@@ -483,13 +483,48 @@ def psi_result_logging(
     logger.info('done psi result logging')
 #############################################################################
 
-# @dsl.component(base_image=vertex_image_location)
-# def upload_model_to_registry(artifact=):
-#     """upload model to vertex ai model registry"""
-#     # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.0.0/api/v1/model.html#v1.model.ModelUploadOp
-#     # https://github.com/GoogleCloudPlatform/vertex-ai-samples/blob/main/notebooks/official/pipelines/google_cloud_pipeline_components_model_train_upload_deploy.ipynb
-#     # https://cloud.google.com/vertex-ai/docs/model-registry/import-model#import_a_model_programmatically
+@dsl.component(base_image=vertex_image_location)
+def upload_model_to_registry(project_id: str, model_name: str, model_registry_location: str, model: Input[Model]):
+    """upload model to vertex ai model registry"""
+    # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.0.0/api/v1/model.html#v1.model.ModelUploadOp
+    # https://github.com/GoogleCloudPlatform/vertex-ai-samples/blob/main/notebooks/official/pipelines/google_cloud_pipeline_components_model_train_upload_deploy.ipynb
+    # https://cloud.google.com/vertex-ai/docs/model-registry/import-model#import_a_model_programmatically
 
+    import logging
+    import sys
+    from google.cloud import aiplatform
+
+    logger = logging.getLogger('pistachio.upload_model_to_registry')
+    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
+
+    aiplatform.init(project=project_id, location=model_registry_location)
+
+    # artifact uri should be a directory, not the specific pickle file
+    artifact_uri = model.uri[:rindex('/')+1]
+
+    model = aiplatform.Model.upload(
+        display_name=model_name,
+        artifact_uri=artifact_uri,
+        serving_container_image_uri=base_image_location,
+        serving_container_predict_route='/predict',
+        serving_container_health_route='/health',
+        # instance_schema_uri=instance_schema_uri,
+        # parameters_schema_uri=parameters_schema_uri,
+        # prediction_schema_uri=prediction_schema_uri,
+        description='model for classifying types of pistachios',
+        serving_container_command='./serve_predictions.py',
+        # serving_container_args=serving_container_args,
+        # serving_container_environment_variables=serving_container_environment_variables,
+        # serving_container_ports=serving_container_ports,
+        # explanation_metadata=explanation_metadata,
+        # explanation_parameters=explanation_parameters,
+        sync=True,
+    )
+
+    model.wait()
+
+    logger.info(model.display_name)
+    logger.info(model.resource_name)
 
 
 

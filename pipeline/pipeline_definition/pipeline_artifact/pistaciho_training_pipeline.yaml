@@ -2,6 +2,7 @@
 # Name: pistachio-training-pipeline
 # Description: pipeline for training pistachio classifier
 # Inputs:
+#    project_id: str [Default: 'pistachio-mlops-sbx']
 #    test_split_data_fraction: float [Default: 0.2]
 #    train_test_split_seed: int [Default: 37.0]
 #    tuning_cv_seed: int [Default: 73.0]
@@ -396,6 +397,21 @@ components:
           artifactType:
             schemaTitle: system.Artifact
             schemaVersion: 0.0.1
+  comp-upload-model-to-registry:
+    executorLabel: exec-upload-model-to-registry
+    inputDefinitions:
+      artifacts:
+        model:
+          artifactType:
+            schemaTitle: system.Model
+            schemaVersion: 0.0.1
+      parameters:
+        model_name:
+          parameterType: STRING
+        model_registry_location:
+          parameterType: STRING
+        project_id:
+          parameterType: STRING
   comp-validate-data:
     executorLabel: exec-validate-data
     inputDefinitions:
@@ -984,6 +1000,55 @@ deploymentSpec:
           \    from train_monitoring import fit_psi\n\n    psi_artifact.path = psi_artifact.path\
           \ + '.pkl'\n    fit_psi(train_data.path, psi_artifact.path)\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-upload-model-to-registry:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - upload_model_to_registry
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef upload_model_to_registry(project_id: str, model_name: str, model_registry_location:\
+          \ str, model: Input[Model]):\n    \"\"\"upload model to vertex ai model\
+          \ registry\"\"\"\n    # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.0.0/api/v1/model.html#v1.model.ModelUploadOp\n\
+          \    # https://github.com/GoogleCloudPlatform/vertex-ai-samples/blob/main/notebooks/official/pipelines/google_cloud_pipeline_components_model_train_upload_deploy.ipynb\n\
+          \    # https://cloud.google.com/vertex-ai/docs/model-registry/import-model#import_a_model_programmatically\n\
+          \n    import logging\n    import sys\n    from google.cloud import aiplatform\n\
+          \n    logger = logging.getLogger('pistachio.upload_model_to_registry')\n\
+          \    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)\n\n   \
+          \ aiplatform.init(project=project_id, location=model_registry_location)\n\
+          \n    # artifact uri should be a directory, not the specific pickle file\n\
+          \    artifact_uri = model.uri[:rindex('/')+1]\n\n    model = aiplatform.Model.upload(\n\
+          \        display_name=model_name,\n        artifact_uri=artifact_uri,\n\
+          \        serving_container_image_uri=base_image_location,\n        serving_container_predict_route='/predict',\n\
+          \        serving_container_health_route='/health',\n        # instance_schema_uri=instance_schema_uri,\n\
+          \        # parameters_schema_uri=parameters_schema_uri,\n        # prediction_schema_uri=prediction_schema_uri,\n\
+          \        description='model for classifying types of pistachios',\n    \
+          \    serving_container_command='./serve_predictions.py',\n        # serving_container_args=serving_container_args,\n\
+          \        # serving_container_environment_variables=serving_container_environment_variables,\n\
+          \        # serving_container_ports=serving_container_ports,\n        # explanation_metadata=explanation_metadata,\n\
+          \        # explanation_parameters=explanation_parameters,\n        sync=True,\n\
+          \    )\n\n    model.wait()\n\n    logger.info(model.display_name)\n    logger.info(model.resource_name)\n\
+          \n"
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_gcp_aip:0.0.1
     exec-validate-data:
       container:
         args:
@@ -1301,6 +1366,30 @@ root:
                 producerTask: preprocess-data
         taskInfo:
           name: compute monitoring statistics
+      upload-model-to-registry:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-upload-model-to-registry
+        dependentTasks:
+        - train-final-model
+        inputs:
+          artifacts:
+            model:
+              taskOutputArtifact:
+                outputArtifactKey: model_pickle
+                producerTask: train-final-model
+          parameters:
+            model_name:
+              runtimeValue:
+                constant: pistachio_classifier
+            model_registry_location:
+              runtimeValue:
+                constant: northamerica-northeast2
+            project_id:
+              componentInputParameter: project_id
+        taskInfo:
+          name: upload_model_to_registry
       validate-data:
         cachingOptions:
           enableCache: true
@@ -1341,6 +1430,10 @@ root:
           name: validate test data
   inputDefinitions:
     parameters:
+      project_id:
+        defaultValue: pistachio-mlops-sbx
+        isOptional: true
+        parameterType: STRING
       test_split_data_fraction:
         defaultValue: 0.2
         description: _description_
