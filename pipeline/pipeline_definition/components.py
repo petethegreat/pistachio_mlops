@@ -500,7 +500,7 @@ def upload_model_to_registry(project_id: str, model_name: str, model_registry_lo
     aiplatform.init(project=project_id, location=model_registry_location)
 
     # artifact uri should be a directory, not the specific pickle file
-    artifact_uri = model.uri[:rindex('/')+1]
+    artifact_uri = model.uri[:(model.uri.rindex('/')+1)]
 
     model = aiplatform.Model.upload(
         display_name=model_name,

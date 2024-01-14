@@ -1036,8 +1036,8 @@ deploymentSpec:
           \    logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)\n\n   \
           \ aiplatform.init(project=project_id, location=model_registry_location)\n\
           \n    # artifact uri should be a directory, not the specific pickle file\n\
-          \    artifact_uri = model.uri[:rindex('/')+1]\n\n    model = aiplatform.Model.upload(\n\
-          \        display_name=model_name,\n        artifact_uri=artifact_uri,\n\
+          \    artifact_uri = model.uri[:(model.uri.rindex('/')+1)]\n\n    model =\
+          \ aiplatform.Model.upload(\n        display_name=model_name,\n        artifact_uri=artifact_uri,\n\
           \        serving_container_image_uri=base_image_location,\n        serving_container_predict_route='/predict',\n\
           \        serving_container_health_route='/health',\n        # instance_schema_uri=instance_schema_uri,\n\
           \        # parameters_schema_uri=parameters_schema_uri,\n        # prediction_schema_uri=prediction_schema_uri,\n\
