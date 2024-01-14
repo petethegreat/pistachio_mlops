@@ -484,7 +484,7 @@ def psi_result_logging(
 #############################################################################
 
 @dsl.component(base_image=vertex_image_location)
-def upload_model_to_registry(project_id: str, model_name: str, model_registry_location: str, model: Input[Model]):
+def upload_model_to_registry(project_id: str, model_name: str, model_registry_location: str, serving_container_image_location: str, model: Input[Model]):
     """upload model to vertex ai model registry"""
     # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.0.0/api/v1/model.html#v1.model.ModelUploadOp
     # https://github.com/GoogleCloudPlatform/vertex-ai-samples/blob/main/notebooks/official/pipelines/google_cloud_pipeline_components_model_train_upload_deploy.ipynb
@@ -505,14 +505,14 @@ def upload_model_to_registry(project_id: str, model_name: str, model_registry_lo
     model = aiplatform.Model.upload(
         display_name=model_name,
         artifact_uri=artifact_uri,
-        serving_container_image_uri=base_image_location,
+        serving_container_image_uri=serving_container_image_location,
         serving_container_predict_route='/predict',
         serving_container_health_route='/health',
         # instance_schema_uri=instance_schema_uri,
         # parameters_schema_uri=parameters_schema_uri,
         # prediction_schema_uri=prediction_schema_uri,
         description='model for classifying types of pistachios',
-        serving_container_command='./serve_predictions.py',
+        serving_container_command=['./serve_predictions.py'],
         # serving_container_args=serving_container_args,
         # serving_container_environment_variables=serving_container_environment_variables,
         # serving_container_ports=serving_container_ports,

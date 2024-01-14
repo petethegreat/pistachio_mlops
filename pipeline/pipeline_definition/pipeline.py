@@ -36,10 +36,10 @@ stratify_column_name = 'Class'
 # name to use in registry
 model_name = CONFIG.get('model_registry_name','pistachio_classifier')
 model_registry_location = CONFIG.get('model_registry_location','the_gcp_location')
-# need this for the importer op - needs the image uri
-# artifact_registry = CONFIG.get('artifact_registry', 'the_artifact_registry')
-# base_image_name = CONFIG.get('base_image_name', 'the_base_image:0.0.0')
-# base_image_location = f'{artifact_registry}/{base_image_name}'
+# need this for the model upload op
+artifact_registry = CONFIG.get('artifact_registry', 'the_artifact_registry')
+base_image_name = CONFIG.get('base_image_name', 'the_base_image:0.0.0')
+base_image_location = f'{artifact_registry}/{base_image_name}'
 
 
 @dsl.pipeline(
@@ -159,6 +159,7 @@ def pistachio_training_pipeline(
         project_id=project_id,
         model_name=model_name,
         model_registry_location=model_registry_location,
+        serving_container_image_location=base_image_location,
         model=model_train_task.outputs['model_pickle'])\
             .set_display_name('upload_model_to_registry')
 
