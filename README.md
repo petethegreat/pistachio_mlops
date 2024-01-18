@@ -68,3 +68,10 @@ https://github.com/GoogleCloudPlatform/professional-services/blob/main/examples/
 
 - move components from container components to lightweight components - can specify our image as base image. still leaves image definition seperate from pipeline defnition.
 
+
+## Batch prediction
+  - current code does not do the preprocessing. Can get this to use a fastapi image
+  - need to pass `--port $AIP_HTTP_PORT` in the args to the component, so that fastapi gets the port it should use.
+
+  
+
