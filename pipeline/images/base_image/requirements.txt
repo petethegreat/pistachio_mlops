@@ -12,5 +12,4 @@ seaborn == 0.13.0
 pandas-gbq == 0.19.2
 pylint == 3.0.2
 statsmodels == 0.14.0
-fastapi == 0.108.0
 

@@ -16,6 +16,24 @@ logger = logging.getLogger('pistachio')
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 
+def sample_data(
+    input_file_path: str,
+    output_file_path: str,
+    sample_seed: int,
+    sample_records: int): 
+    """load arff file, sample it, and write parquet
+
+    Args:
+        input_file_path (str): location of input arff file
+        output_file_path (str): path to write output parquet file
+        sample_seed (int): seed for sampling data
+        sample_records (int): number of records to sample
+    """
+    df = load_arff_file(input_file_path)
+
+    sample_df = df.sample(n=sample_records, random_state=sample_seed, replace=True)
+    sample_df.to_parquet(output_file_path)
+
 def load_and_split_data(
     input_file_path: str,
     output_train_file_path: str,

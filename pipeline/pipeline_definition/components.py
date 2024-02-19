@@ -21,8 +21,38 @@ base_image_location = f'{artifact_registry}/{base_image_name}'
 vertex_image_name = CONFIG.get('vertex_image_name','the_vertex_image:0.0.0')
 vertex_image_location = f'{artifact_registry}/{vertex_image_name}'
 
+@dsl.component(base_image=base_image_location)
+def sample_data(input_file_path: str,
+    output_sample: Output[Dataset],
+    sample_seed: int=37,
+    sample_records: int=1000
+    )-> None:
+    """load_data
+    component to load data from arff file and write to parquet
 
+    Args:
+        input_file_path (str): location of input arff file
+        output_sample (Output[Dataset]): path to write output parquet file
+        sample_seed (int, optional): sseed for sampling data
+        sample_records (int, optional): number of records to sample
+
+    Returns:
+        None
+    """
+
+    from load_data import sample_data
+    # load_data.py is the python file in the image - the container components run this as an entrypoint
+
+    output_sample.path = output_sample.path + '.pqt'
+
+    sample_data(
+        input_file_path=input_file_path,
+        output_file_path=output_sample.path,
+        sample_seed=sample_seed,
+        sample_records=sample_records
+    )
 #############################################################################
+
 @dsl.component(base_image=base_image_location)
 def load_data(input_file_path: str,
     output_train: Output[Dataset],
@@ -60,7 +90,6 @@ def load_data(input_file_path: str,
         test_fraction=test_fraction,
         label_column=label_column
     )
-
 #############################################################################
 
 @dsl.component(base_image=base_image_location)
@@ -80,6 +109,7 @@ def validate_data(
     from validate_data import validate_data
     validate_data(input_file.path, schema_file_path)
 #############################################################################
+
 @dsl.component(base_image=base_image_location)
 def preprocess_data(
     input_file: Input[Dataset],
@@ -483,9 +513,74 @@ def psi_result_logging(
     logger.info('done psi result logging')
 #############################################################################
 
+@dsl.component(base_image=base_image_location)
+def copy_artifacts_to_storage(
+    project_id: str,
+    storage_bucket: str,
+    artifact_path: str,
+    pipeline_name: str,
+    run_name: str,
+    run_id: str,
+    argo_run_id: str,
+    model: Input[Model],
+    psi_artifact: Input[Artifact]) -> str:
+    """_summary_
+
+    Args:
+        project_id (str): _description_
+        storage_bucket (str): _description_
+        artifact_path (str): _description_
+        model (Input[Model]): _description_
+        psi_artifact (Input[Artifact]): _description_
+
+    Returns:
+        str: cloud storage uri for artifact directory.- this can be passed to model upload
+    """
+
+    import logging
+    from google.cloud import storage
+    import kfp
+    import json
+    # https://www.kubeflow.org/docs/components/pipelines/v2/components/lightweight-python-components/#install_kfp_package
+    # kfp is installed at runtime by default
+
+    # run_id = kfp.dsl.RUN_ID_PLACEHOLDER
+
+    storage_client = storage.Client()
+    bucket = storage_client.bucket(storage_bucket)
+
+    # upload model artifact
+    model_artifact_filename = model.path.split('/')[-1]
+    destination_blob_name = f'{artifact_path}/{run_id}/{model_artifact_filename}'
+
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_filename(model.path)
+
+    # upload psi artifact
+    psi_artifact_filename = psi_artifact.path.split('/')[-1]
+    destination_blob_name = f'{artifact_path}/{run_id}/{psi_artifact_filename}'
+
+    blob = bucket.blob(destination_blob_name)
+    blob.upload_from_filename(psi_artifact.path)
+
+    # upload some metadata
+    metadata = {
+        'pipeline_name':pipeline_name,
+        'run_name':run_name,
+        'run_id':run_id,
+        'argo_run_id':argo_run_id
+    }
+    destination_blob_name = f'{artifact_path}/{run_id}/metadata.json'
+    blob.upload_from_string(json.dumps(metadata))
+
+    artifact_uri = f'gs://{storage_bucket}/{artifact_path}/{run_id}/'
+    return artifact_uri
+#############################################################################
+
 @dsl.component(base_image=vertex_image_location)
-def upload_model_to_registry(project_id: str, model_name: str, model_registry_location: str, serving_container_image_location: str, model: Input[Model]):
+def upload_model_to_registry(project_id: str, model_name: str, model_registry_location: str, serving_container_image_location: str, artifact_uri: str):
     """upload model to vertex ai model registry"""
+    # model: Input[Model]
     # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.0.0/api/v1/model.html#v1.model.ModelUploadOp
     # https://github.com/GoogleCloudPlatform/vertex-ai-samples/blob/main/notebooks/official/pipelines/google_cloud_pipeline_components_model_train_upload_deploy.ipynb
     # https://cloud.google.com/vertex-ai/docs/model-registry/import-model#import_a_model_programmatically
@@ -500,32 +595,89 @@ def upload_model_to_registry(project_id: str, model_name: str, model_registry_lo
     aiplatform.init(project=project_id, location=model_registry_location)
 
     # artifact uri should be a directory, not the specific pickle file
-    artifact_uri = model.uri[:(model.uri.rindex('/')+1)]
+    # artifact_uri = model.uri[:(model.uri.rindex('/')+1)]
 
-    model = aiplatform.Model.upload(
-        display_name=model_name,
-        artifact_uri=artifact_uri,
-        serving_container_image_uri=serving_container_image_location,
-        serving_container_predict_route='/predict',
-        serving_container_health_route='/health',
-        # instance_schema_uri=instance_schema_uri,
-        # parameters_schema_uri=parameters_schema_uri,
-        # prediction_schema_uri=prediction_schema_uri,
-        description='model for classifying types of pistachios',
-        serving_container_command=['./serve_predictions.py'],
-        # serving_container_args=serving_container_args,
-        # serving_container_environment_variables=serving_container_environment_variables,
-        # serving_container_ports=serving_container_ports,
-        # explanation_metadata=explanation_metadata,
-        # explanation_parameters=explanation_parameters,
-        sync=True,
-    )
+    # get models 
+    models = aiplatform.Model.list(
+        filter=f'display_name="{model_name}"',
+        order_by="update_time desc"
+        )
+    if len(models) > 0:
+        # upload new version of existing model
+        model = aiplatform.Model.upload(
+            display_name=model_name,
+            artifact_uri=artifact_uri,
+            serving_container_image_uri=serving_container_image_location,
+            serving_container_predict_route='/predict',
+            serving_container_health_route='/health',
+            parent_model=models[0].name,
+            # instance_schema_uri=instance_schema_uri,
+            # parameters_schema_uri=parameters_schema_uri,
+            # prediction_schema_uri=prediction_schema_uri,
+            description='model for classifying types of pistachios',
+            # serving_container_command=['./serve_predictions.py'], # entrypoint is defined
+            # serving_container_args=serving_container_args, # container command is defined
+            # serving_container_environment_variables=serving_container_environment_variables,
+            serving_container_ports=[8080], # this is the port expected by the container
+            is_default_version=True,
+            # explanation_metadata=explanation_metadata,
+            # explanation_parameters=explanation_parameters,
+            sync=True
+            )
+    else:
+        model = aiplatform.Model.upload(
+            display_name=model_name,
+            artifact_uri=artifact_uri,
+            serving_container_image_uri=serving_container_image_location,
+            serving_container_predict_route='/predict',
+            serving_container_health_route='/health',
+            # instance_schema_uri=instance_schema_uri,
+            # parameters_schema_uri=parameters_schema_uri,
+            # prediction_schema_uri=prediction_schema_uri,
+            description='model for classifying types of pistachios',
+            # serving_container_command=['./serve_predictions.py'], # entrypoint is defined
+            # serving_container_args=serving_container_args, # container command is defined
+            # serving_container_environment_variables=serving_container_environment_variables,
+            serving_container_ports=[8080], # this is the port expected by the container
+            is_default_version=True,
+            # explanation_metadata=explanation_metadata,
+            # explanation_parameters=explanation_parameters,
+            sync=True,
+        )
 
     model.wait()
 
     logger.info(model.display_name)
     logger.info(model.resource_name)
 
+#############################################################################
+
+@dsl.component(base_image=vertex_image_location)
+def get_model_from_registry(project_id: str, model_name: str, model_registry_location: str) -> Dict[str,str]:
+    """get model details from the registry"""
+
+    # Create a client
+    # project = "pistachio-mlops-sbx"
+    # location = 'northamerica-northeast2'
+    # name = "pistachio_classifier"
+
+    from google.cloud import aiplatform
+
+    aiplatform.init(project=project_id, location=model_registry_location)
+
+    models = aiplatform.Model.list(
+        filter=f'display_name="{model_name}"',
+        order_by="update_time desc"
+
+    )
+    if not models:
+        raise ValueError(f"no models found for name {model_name}")
+    model = models[0]
+
+    return model.to_dict()
+    #
+    # for k,v in model.to_dict().items():
+    #     print(f"{k}: {v}")
 
 
 

@@ -1,0 +1,314 @@
+# PIPELINE DEFINITION
+# Name: pistachio-batch-prediction-pipeline
+# Description: pipeline for batch inference of pistachio classifier
+# Inputs:
+#    project_id: str [Default: 'pistachio-mlops-sbx']
+#    sample_records: int [Default: 1000.0]
+#    sample_seed: int [Default: 47.0]
+components:
+  comp-get-model-from-registry:
+    executorLabel: exec-get-model-from-registry
+    inputDefinitions:
+      parameters:
+        model_name:
+          parameterType: STRING
+        model_registry_location:
+          parameterType: STRING
+        project_id:
+          parameterType: STRING
+    outputDefinitions:
+      parameters:
+        Output:
+          parameterType: STRUCT
+  comp-preprocess-data:
+    executorLabel: exec-preprocess-data
+    inputDefinitions:
+      artifacts:
+        input_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: path to raw data to be preprocessed
+    outputDefinitions:
+      artifacts:
+        output_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-sample-data:
+    executorLabel: exec-sample-data
+    inputDefinitions:
+      parameters:
+        input_file_path:
+          description: location of input arff file
+          parameterType: STRING
+        sample_records:
+          defaultValue: 1000.0
+          description: number of records to sample
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+        sample_seed:
+          defaultValue: 37.0
+          description: sseed for sampling data
+          isOptional: true
+          parameterType: NUMBER_INTEGER
+    outputDefinitions:
+      artifacts:
+        output_sample:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+  comp-validate-data:
+    executorLabel: exec-validate-data
+    inputDefinitions:
+      artifacts:
+        input_file:
+          artifactType:
+            schemaTitle: system.Dataset
+            schemaVersion: 0.0.1
+          description: path to input dataset to be validated
+      parameters:
+        schema_file_path:
+          description: pandera schema file to use for validation
+          parameterType: STRING
+defaultPipelineRoot: gs://pistachio_pipeline_sbx_bucket/pistachio_prediction_root
+deploymentSpec:
+  executors:
+    exec-get-model-from-registry:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - get_model_from_registry
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef get_model_from_registry(project_id: str, model_name: str, model_registry_location:\
+          \ str) -> Dict[str,str]:\n    \"\"\"get model details from the registry\"\
+          \"\"\n\n    # Create a client\n    # project = \"pistachio-mlops-sbx\"\n\
+          \    # location = 'northamerica-northeast2'\n    # name = \"pistachio_classifier\"\
+          \n\n    from google.cloud import aiplatform\n\n    aiplatform.init(project=project_id,\
+          \ location=model_registry_location)\n\n    models = aiplatform.Model.list(\n\
+          \        filter=f'display_name=\"{model_name}\"',\n        order_by=\"update_time\
+          \ desc\"\n\n    )\n    if not models:\n        raise ValueError(f\"no models\
+          \ found for name {model_name}\")\n    model = models[0]\n\n    return model.to_dict()\n\
+          \    #\n    # for k,v in model.to_dict().items():\n    #     print(f\"{k}:\
+          \ {v}\")\n\n"
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_gcp_aip:0.0.1
+    exec-preprocess-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - preprocess_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef preprocess_data(\n    input_file: Input[Dataset],\n    output_file:\
+          \ Output[Dataset],\n    )-> None:\n    \"\"\"preprocess_data component\n\
+          \n    Args:\n        input_file (Input[Dataset]): path to raw data to be\
+          \ preprocessed\n        output_file (Output[Dataset]): path where preprocessed\
+          \ data will be written \n        feature_list (Output[Artifact]): path to\
+          \ where list of feature columns will be written as json\n\n    Returns:\n\
+          \        None\n    \"\"\"   \n    from preprocess_data import preprocess_data_features\n\
+          \n    output_file.path = output_file.path + '.pqt'\n\n    features = preprocess_data_features(\
+          \ input_file.path, output_file.path)\n    output_file.metadata['features']\
+          \ = features\n\n"
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-sample-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - sample_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef sample_data(input_file_path: str,\n    output_sample: Output[Dataset],\n\
+          \    sample_seed: int=37,\n    sample_records: int=1000\n    )-> None:\n\
+          \    \"\"\"load_data\n    component to load data from arff file and write\
+          \ to parquet\n\n    Args:\n        input_file_path (str): location of input\
+          \ arff file\n        output_sample (Output[Dataset]): path to write output\
+          \ parquet file\n        sample_seed (int, optional): sseed for sampling\
+          \ data\n        sample_records (int, optional): number of records to sample\n\
+          \n    Returns:\n        None\n    \"\"\"\n\n    from load_data import sample_data\n\
+          \    # load_data.py is the python file in the image - the container components\
+          \ run this as an entrypoint\n\n    output_sample.path = output_sample.path\
+          \ + '.pqt'\n\n    sample_data(\n        input_file_path=input_file_path,\n\
+          \        output_file_path=output_sample.path,\n        sample_seed=sample_seed,\n\
+          \        sample_records=sample_records\n    )\n\n"
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+    exec-validate-data:
+      container:
+        args:
+        - --executor_input
+        - '{{$}}'
+        - --function_to_execute
+        - validate_data
+        command:
+        - sh
+        - -c
+        - "\nif ! [ -x \"$(command -v pip)\" ]; then\n    python3 -m ensurepip ||\
+          \ python3 -m ensurepip --user || apt-get install python3-pip\nfi\n\nPIP_DISABLE_PIP_VERSION_CHECK=1\
+          \ python3 -m pip install --quiet --no-warn-script-location 'kfp==2.3.0'\
+          \ '--no-deps' 'typing-extensions>=3.7.4,<5; python_version<\"3.9\"' && \"\
+          $0\" \"$@\"\n"
+        - sh
+        - -ec
+        - 'program_path=$(mktemp -d)
+
+
+          printf "%s" "$0" > "$program_path/ephemeral_component.py"
+
+          _KFP_RUNTIME=true python3 -m kfp.dsl.executor_main                         --component_module_path                         "$program_path/ephemeral_component.py"                         "$@"
+
+          '
+        - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
+          \ *\n\ndef validate_data(\n    input_file: Input[Dataset],\n    schema_file_path:\
+          \ str\n    )-> None:\n    \"\"\"validate_data component\n\n    Args:\n \
+          \       input_file (Input[Dataset]): path to input dataset to be validated\n\
+          \        schema_file_path (str): pandera schema file to use for validation\n\
+          \n    Returns:\n        None\n    \"\"\"\n    from validate_data import\
+          \ validate_data\n    validate_data(input_file.path, schema_file_path)\n\n"
+        image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
+pipelineInfo:
+  description: pipeline for batch inference of pistachio classifier
+  name: pistachio-batch-prediction-pipeline
+root:
+  dag:
+    tasks:
+      get-model-from-registry:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-get-model-from-registry
+        inputs:
+          parameters:
+            model_name:
+              runtimeValue:
+                constant: pistachio_classifier
+            model_registry_location:
+              runtimeValue:
+                constant: northamerica-northeast2
+            project_id:
+              componentInputParameter: project_id
+        taskInfo:
+          name: get-model-from-registry
+      preprocess-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-preprocess-data
+        dependentTasks:
+        - sample-data
+        - validate-data
+        inputs:
+          artifacts:
+            input_file:
+              taskOutputArtifact:
+                outputArtifactKey: output_sample
+                producerTask: sample-data
+        taskInfo:
+          name: preprocess sample data
+      sample-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-sample-data
+        inputs:
+          parameters:
+            input_file_path:
+              runtimeValue:
+                constant: /gcs/pistachio_pipeline_sbx_bucket/pipeline_resources/Pistachio_16_Features_Dataset.arff
+            sample_records:
+              componentInputParameter: sample_records
+            sample_seed:
+              componentInputParameter: sample_seed
+        taskInfo:
+          name: sample dataset
+      validate-data:
+        cachingOptions:
+          enableCache: true
+        componentRef:
+          name: comp-validate-data
+        dependentTasks:
+        - sample-data
+        inputs:
+          artifacts:
+            input_file:
+              taskOutputArtifact:
+                outputArtifactKey: output_sample
+                producerTask: sample-data
+          parameters:
+            schema_file_path:
+              runtimeValue:
+                constant: /gcs/pistachio_pipeline_sbx_bucket/pipeline_resources/pistachio_schema.json
+        taskInfo:
+          name: validate sample data
+  inputDefinitions:
+    parameters:
+      project_id:
+        defaultValue: pistachio-mlops-sbx
+        isOptional: true
+        parameterType: STRING
+      sample_records:
+        defaultValue: 1000.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+      sample_seed:
+        defaultValue: 47.0
+        isOptional: true
+        parameterType: NUMBER_INTEGER
+schemaVersion: 2.1.0
+sdkVersion: kfp-2.3.0

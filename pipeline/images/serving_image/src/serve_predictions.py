@@ -1,4 +1,5 @@
 
+from typing import List
 from fastapi import FastAPI
 
 from google.cloud import storage
@@ -6,6 +7,11 @@ from pydantic import BaseModel
 
 import logging
 import pandas as pd
+
+import sys 
+import os
+
+import pickle
 
 logger = logging.getLogger('pistachio')
 logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
@@ -31,9 +37,35 @@ class InstanceModel(BaseModel):
     SHAPEFACTOR_4:  float
     SOLIDITY_MAJOR: float
 
+    model_config = {
+        "json_schema_extra": {
+            "examples": [
+                {
+                    "AREA": 63391,
+                    "PERIMETER":  1568.405,
+                    "MAJOR_AXIS":  390.3396,
+                    "MINOR_AXIS":  236.7461,
+                    "ECCENTRICITY":  0.7951,
+                    "EQDIASQ":  284.0984,
+                    "SOLIDITY":  0.8665,
+                    "CONVEX_AREA":  73160,
+                    "EXTENT":  0.6394,
+                    "ASPECT_RATIO":  1.6488,
+                    "ROUNDNESS":  0.3238,
+                    "COMPACTNESS":  0.7278,
+                    "SHAPEFACTOR_1":  0.0062,
+                    "SHAPEFACTOR_2":  0.0037,
+                    "SHAPEFACTOR_3":  0.5297,
+                    "SHAPEFACTOR_4":  0.8734,
+                    "SOLIDITY_MAJOR": 338.229
+                }
+            ]
+        }
+    }
+
 
 class InferenceBody(BaseModel):
-    instances: List[InferenceRecord]
+    instances: List[InstanceModel]
 
 
 def load_model_from_gcs(path: str):
@@ -48,7 +80,7 @@ def load_model_from_gcs(path: str):
     client = storage.Client()
     bucket = client.get_bucket(bucket_name)
     blob = bucket.blob(blob_path)
-    bstr = blob.dowload_as_bytes()
+    bstr = blob.download_as_bytes()
     model = pickle.loads(bstr)
     logger.info('model loaded from gcs')
     return model
@@ -80,7 +112,7 @@ def get_model_artifacts(path: str):
 
 app = FastAPI()
 
-model_path = os.env['AIP_STORAGE_URI']
+model_path = os.environ['AIP_STORAGE_URI']
 
 MODEL = get_model_artifacts(model_path)
 
@@ -100,7 +132,7 @@ async def predict(inference_data: InferenceBody):
     """handles the request, return prediction"""
 
     # get data in df
-    inference_data = pd.DataFrame.from_records([dict[x] for x in inference_data.instances])
+    inference_data = pd.DataFrame.from_records([dict(x) for x in inference_data.instances])
     logger.info(inference_data.head())
     features = inference_data.columns
 

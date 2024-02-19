@@ -1,5 +1,5 @@
 #!/usr/bin/env python 
-"""pipeline.py
+"""training_pipeline.py
 pipeline definition. render component definitions from templates in components directory.
 define pipeline from components.
 """
@@ -15,7 +15,7 @@ from google_cloud_pipeline_components.v1.model import ModelUploadOp
 # from container_components import train_final_model, evaluate_trained_model, infer_monitoring
 from components import load_data, validate_data, preprocess_data, train_monitoring, infer_monitoring, hyperparameter_tuning
 from components import train_final_model, evaluate_trained_model, upload_model_to_registry
-from components import  evaluation_reporting, psi_result_logging
+from components import  evaluation_reporting, psi_result_logging, copy_artifacts_to_storage
 
 import yaml
 
@@ -40,10 +40,13 @@ model_registry_location = CONFIG.get('model_registry_location','the_gcp_location
 artifact_registry = CONFIG.get('artifact_registry', 'the_artifact_registry')
 base_image_name = CONFIG.get('base_image_name', 'the_base_image:0.0.0')
 base_image_location = f'{artifact_registry}/{base_image_name}'
+serving_image_name = CONFIG.get('serving_image_name', 'the_serving_image:0.0.0')
+serving_image_location = f'{artifact_registry}/{serving_image_name}'
+artifact_path = CONFIG.get('artifact_path','the_artifact_path')
 
 
 @dsl.pipeline(
-    name='pistachio_training_pipeline',
+    name=pipeline_name,
     description='pipeline for training pistachio classifier',
     pipeline_root=pipeline_root)
 def pistachio_training_pipeline(
@@ -155,12 +158,49 @@ def pistachio_training_pipeline(
     #     unmanaged_container_model=model_train_task.outputs['model_pickle']
     # )
 
+    # copy artifacts to specific location in bucket
+    # upload model using artifact id from that component
+    #   dummy('{{workflow.labels.pipeline/runid}}', '{{workflow.annotations.pipelines.kubeflow.org/run_name}}')
+
+    # https://stackoverflow.com/a/71384129
+    # print_op(msg='job name:', value=dsl.PIPELINE_JOB_NAME_PLACEHOLDER)
+    # print_op(msg='job resource name:', value=dsl.PIPELINE_JOB_RESOURCE_NAME_PLACEHOLDER)
+    # print_op(msg='job id:', value=dsl.PIPELINE_JOB_ID_PLACEHOLDER)
+    # print_op(msg='task name:', value=dsl.PIPELINE_TASK_NAME_PLACEHOLDER)
+    # print_op(msg='task id:', value=dsl.PIPELINE_TASK_ID_PLACEHOLDER)
+
+    # https://github.com/kubeflow/pipelines/blob/master/sdk/python/kfp/dsl/__init__.py
+    # 'PIPELINE_JOB_NAME_PLACEHOLDER',
+    # 'PIPELINE_JOB_RESOURCE_NAME_PLACEHOLDER',
+    # 'PIPELINE_JOB_ID_PLACEHOLDER',
+    # 'PIPELINE_TASK_NAME_PLACEHOLDER',
+    # 'PIPELINE_TASK_ID_PLACEHOLDER',
+    # 'PIPELINE_TASK_EXECUTOR_OUTPUT_PATH_PLACEHOLDER',
+    # 'PIPELINE_TASK_EXECUTOR_INPUT_PLACEHOLDER',
+    # 'PIPELINE_ROOT_PLACEHOLDER',
+    # 'PIPELINE_JOB_CREATE_TIME_UTC_PLACEHOLDER',
+    # 'PIPELINE_JOB_SCHEDULE_TIME_UTC_PLACEHOLDER',
+
+
+
+    copy_artifacts_to_storage_task = copy_artifacts_to_storage(
+        project_id=project_id,
+        storage_bucket=bucket_name,
+        artifact_path=artifact_path,
+        pipeline_name=pipeline_name,
+        run_name='{{workflow.annotations.pipelines.kubeflow.org/run_name}}',
+        run_id = dsl.PIPELINE_JOB_ID_PLACEHOLDER,
+        argo_run_id='{{workflow.labels.pipeline/runid}}',
+        model=model_train_task.outputs['model_pickle'],
+        psi_artifact=train_monitoring_task.outputs["psi_artifact"])
+    
+
     upload_task = upload_model_to_registry(
         project_id=project_id,
         model_name=model_name,
         model_registry_location=model_registry_location,
-        serving_container_image_location=base_image_location,
-        model=model_train_task.outputs['model_pickle'])\
+        serving_container_image_location=serving_image_location,
+        artifact_uri=copy_artifacts_to_storage_task.output)\
             .set_display_name('upload_model_to_registry')
 
         # evaluate on train data task 
