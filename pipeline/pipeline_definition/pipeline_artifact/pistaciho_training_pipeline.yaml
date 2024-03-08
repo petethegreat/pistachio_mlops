@@ -524,9 +524,9 @@ deploymentSpec:
           \n    # upload some metadata\n    metadata = {\n        'pipeline_name':pipeline_name,\n\
           \        'run_name':run_name,\n        'run_id':run_id,\n        'argo_run_id':argo_run_id\n\
           \    }\n    destination_blob_name = f'{artifact_path}/{run_id}/metadata.json'\n\
-          \    blob.upload_from_string(json.dumps(metadata))\n\n    artifact_uri =\
-          \ f'gs://{storage_bucket}/{artifact_path}/{run_id}/'\n    return artifact_uri\n\
-          \n"
+          \    blob = bucket.blob(destination_blob_name)\n    blob.upload_from_string(json.dumps(metadata))\n\
+          \n    artifact_uri = f'gs://{storage_bucket}/{artifact_path}/{run_id}/'\n\
+          \    return artifact_uri\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-evaluate-trained-model:
       container:

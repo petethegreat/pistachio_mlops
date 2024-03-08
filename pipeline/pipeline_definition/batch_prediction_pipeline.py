@@ -8,13 +8,14 @@ from kfp import dsl
 from kfp import compiler
 from kfp.registry import RegistryClient
 
-from google_cloud_pipeline_components.types import artifact_types
+from google_cloud_pipeline_components.types.artifact_types import VertexModel
 from google_cloud_pipeline_components.v1.model import ModelUploadOp
+from google_cloud_pipeline_components.v1.batch_predict_job import ModelBatchPredictOp
 
 # from container_components import hyperparameter_tuning  load_data, preprocess_data, validate_data, train_monitoring
 # from container_components import train_final_model, evaluate_trained_model, infer_monitoring
 from components import sample_data, validate_data, preprocess_data, infer_monitoring
-from components import psi_result_logging, get_model_from_registry
+from components import psi_result_logging, get_model_artifacts_from_registry, prepare_csv_op
 
 import yaml
 
@@ -26,11 +27,17 @@ with open(CONFIG_FILE_PATH,'r') as config_file:
 bucket_name = CONFIG.get('gcs_bucket','the_gcs_bucket')
 
 pipeline_root = f'gs://{bucket_name}/pistachio_prediction_root'
+
 pipeline_name = CONFIG.get('training_pipeline_name','the_pipeline_name')
 schema_file_path = f"/gcs/{bucket_name}/pipeline_resources/pistachio_schema.json"
 arff_file_path = f"/gcs/{bucket_name}/pipeline_resources/Pistachio_16_Features_Dataset.arff"
 project_id = CONFIG.get('project_id', 'the_project_id')
-stratify_column_name = 'Class'
+
+# output_csv_prefix=f'gs://{bucket_name}/pistachio_prediction_output'
+# input_csv_prefix=f'gs://{bucket_name}/pistachio_prediction_input'
+input_csv_path = CONFIG.get('prediction_input_path','pistachio_prediction_input')
+output_csv_path = CONFIG.get('prediction_output_path','pistachio_prediction_output')
+
 
 # name to use in registry
 model_name = CONFIG.get('model_registry_name','pistachio_classifier')
@@ -82,20 +89,77 @@ def pistachio_prediction_pipeline(
         .after(validate_inference_data_task)\
         .set_display_name('preprocess sample data')
 
-    get_model_task = get_model_from_registry(
+    get_model_task = get_model_artifacts_from_registry(
         project_id=project_id,
         model_name=model_name,
-        model_registry_location=model_registry_location)
+        model_registry_location=model_registry_location)\
+            .set_caching_options(enable_caching=False)
+
+    infer_monitor_task = infer_monitoring(
+        inference_data=preprocess_sample_data_task.outputs["output_file"],
+        psi_artifact=get_model_task.outputs["psi_artifact"])\
+        .set_display_name('sample data PSI monitoring')
+
+    # convert parquet to csv for input
+    # define gcs path for output - add jobid to prefix - must be done in component
+    prepare_csv_task = prepare_csv_op(
+        storage_bucket=bucket_name,
+        input_parquet_data=preprocess_sample_data_task.outputs["output_file"],
+        input_gcs_csv_path=f'{input_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/pistachio_input.csv',
+        #output_gcs_csv_path=f'{output_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/',
+    )
+    
+    batch_predict_task = ModelBatchPredictOp(
+        project=project_id,
+        location=model_registry_location,
+        job_display_name='pistachio_classifier_batch_prediction',
+        model=get_model_task.outputs['model_artifact'],
+        machine_type='e2-standard-2',
+        gcs_source_uris=[f'gs://{bucket_name}/{input_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/pistachio_input.csv'],
+        instances_format='csv',
+        gcs_destination_output_uri_prefix=f'gs://{bucket_name}/{output_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/'
+        )\
+        .after(prepare_csv_task)\
+        .set_display_name('batch prediction task')
 
     # This works
-    # import the model as an artifact and feed to batchpredictionop.
+    # import the artifact
+    # https://cloud.google.com/vertex-ai/docs/pipelines/use-components#use_an_importer_node
+
+    # VertexModel metadata
+    # https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.8.0/api/artifact_types.html#google_cloud_pipeline_components.types.artifact_types.VertexModel
+    # https://github.com/kubeflow/pipelines/blob/master/components/google-cloud/google_cloud_pipeline_components/types/artifact_types.py#L48
+
+    # model_uri = f'https://https://{model_registry_location}-aiplatform.googleapis.com/v1/projects/{project}/locations/{location}/models/{model}'\
+    
+
+# need to create the artifact in the component, not import
+# component outputs can't be used here.
+    # import_model_task =  dsl.importer(
+    #   artifact_uri=get_model_task.output['model_uri'], # this is defined in component, not contained in content from model get
+    #   artifact_class=artifact_types.VertexModel,
+    #   metadata={
+    #       'resourceName': get_model_task.output['name']
+    #   }
+    # )
     
 
 
-    # infer_monitor_task = infer_monitoring(
-    #     inference_data=preprocess_sample_data_task.outputs["output_file"],
-    #     psi_artifact=train_monitoring_task.outputs["psi_artifact"])\
-    #     .set_display_name('test data PSI monitoring')
+#     # import the model as an artifact and feed to batchpredictionop.
+#     https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.8.0/api/artifact_types.html
+
+    
+    
+# https://google-cloud-pipeline-components.readthedocs.io/en/google-cloud-pipeline-components-2.8.0/api/v1/batch_predict_job.html#v1.batch_predict_job.ModelBatchPredictOp
+#     model: dsl.Input[google.VertexModel] = None, 
+#     batch_predict_task = ModelBatchPredictOp(
+#         job_display_name='pistachio_batch_prediction_task',
+#         model=
+
+#     )
+
+
+
 
     
 

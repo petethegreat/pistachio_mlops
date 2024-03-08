@@ -7,6 +7,7 @@ from kfp import dsl
 from kfp.dsl import Dataset, Input, Output, InputPath, OutputPath, Artifact, Markdown, Metrics, Model, SlicedClassificationMetrics, ClassificationMetrics
 from typing import List, Dict, Tuple
 from kfp.dsl import ConcatPlaceholder
+from google_cloud_pipeline_components.types.artifact_types import VertexModel
 import yaml
 
 CONFIG_FILE_PATH = '../config/config.yaml'
@@ -571,6 +572,7 @@ def copy_artifacts_to_storage(
         'argo_run_id':argo_run_id
     }
     destination_blob_name = f'{artifact_path}/{run_id}/metadata.json'
+    blob = bucket.blob(destination_blob_name)
     blob.upload_from_string(json.dumps(metadata))
 
     artifact_uri = f'gs://{storage_bucket}/{artifact_path}/{run_id}/'
@@ -653,7 +655,11 @@ def upload_model_to_registry(project_id: str, model_name: str, model_registry_lo
 #############################################################################
 
 @dsl.component(base_image=vertex_image_location)
-def get_model_from_registry(project_id: str, model_name: str, model_registry_location: str) -> Dict[str,str]:
+def get_model_from_registry(
+        project_id: str,
+        model_name: str,
+        model_registry_location: str
+        ) -> Dict[str,str]:
     """get model details from the registry"""
 
     # Create a client
@@ -674,12 +680,115 @@ def get_model_from_registry(project_id: str, model_name: str, model_registry_loc
         raise ValueError(f"no models found for name {model_name}")
     model = models[0]
 
-    return model.to_dict()
+    output = model.to_dict()
+    output['model_uri'] = f'https://{model_registry_location}-aiplatform.googleapis.com/v1/{output["name"]}'
+    return output
     #
     # for k,v in model.to_dict().items():
     #     print(f"{k}: {v}")
+#############################################################################
 
 
 
+#############################################################################
+
+@dsl.component(base_image=vertex_image_location)
+def get_model_artifacts_from_registry(
+        project_id: str,
+        model_name: str,
+        model_registry_location: str,
+        model_artifact: Output[VertexModel],
+        psi_artifact: Output[Artifact]
+        ) :
+    """get model details from the registry"""
+
+    # Create a client
+    # project = "pistachio-mlops-sbx"
+    # location = 'northamerica-northeast2'
+    # name = "pistachio_classifier"
+
+    from google.cloud import aiplatform
+
+    aiplatform.init(project=project_id, location=model_registry_location)
+
+    models = aiplatform.Model.list(
+        filter=f'display_name="{model_name}"',
+        order_by="update_time desc"
+
+    )
+    if not models:
+        raise ValueError(f"no models found for name {model_name}")
+    model = models[0]
+
+    model_info = model.to_dict()
+    model_name = model_info['name']
+    model_uri = f'https://{model_registry_location}-aiplatform.googleapis.com/v1/{model_name}'
+    # model_artifact.uri = model_uri
+    metadata={
+          'resourceName': model_name}
+    model_artifact.metadata = metadata
+
+    psi_artifact.uri = model_info['artifactUri'] + 'psi_artifact.pkl'
+
+
+
+
+
+    #
+    # for k,v in model.to_dict().items():
+    #     print(f"{k}: {v}")
+#############################################################################
+@dsl.component(base_image=base_image_location)
+def prepare_csv_op(
+        storage_bucket: str,
+        input_parquet_data: Input[Dataset],
+        input_gcs_csv_path: str,
+        # output_gcs_csv_path: str,
+        prediction_input_csv: Output[Dataset],
+        # prediction_output_csv: Output[Dataset]
+    )-> str:
+    """
+    - convert input parquet data to csv file
+    - create dataset artifacts using paths defined
+    """
+
+    import logging
+    from google.cloud import storage
+    import kfp
+    import json
+    from pistachio.data_handling import parquet_to_csv
+    from pistachio.utils import ensure_directory_exists
+
+    logger = logging.getLogger('pistachio.prepare_csv_op')
+
+    # https://www.kubeflow.org/docs/components/pipelines/v2/components/lightweight-python-components/#install_kfp_package
+    # kfp is installed at runtime by default
+
+    # run_id = kfp.dsl.RUN_ID_PLACEHOLDER
+    logger.info('initial input path: {prediction_input_csv.path}')
+    logger.info('initial input uri: {prediction_input_csv.uri}')
+
+    the_input_uri = f'gs://{storage_bucket}/{input_gcs_csv_path}'
+
+    prediction_input_csv.uri = the_input_uri
+
+    logger.info('modified input path: {prediction_input_csv.path}')
+    logger.info('modified input uri: {prediction_input_csv.uri}')
+
+    ensure_directory_exists(prediction_input_csv.path)
+
+    parquet_to_csv(input_parquet_data.path, prediction_input_csv.path)
+
+    # prediction_output_csv.uri = output_gcs_csv_path
+
+    # storage_client = storage.Client()
+    # bucket = storage_client.bucket(storage_bucket)
+
+    # # upload model artifact
+    # model_artifact_filename = model.path.split('/')[-1]
+    # destination_blob_name = f'{artifact_path}/{run_id}/{model_artifact_filename}'
+
+    # blob = bucket.blob(destination_blob_name)
+    # blob.upload_from_filename(model.path)
 
 
