@@ -59,6 +59,17 @@ def arff_to_parquet(input_arff: str, output_parquet: str) -> None:
     logger.info(f'wrote to parquet at {output_parquet}')
 ##################
 
+def parquet_to_csv(input_parquet: str, output_csv: str) -> None:
+    """convert parquet to csv"""
+    if not os.path.exists(input_parquet):
+        raise ValueError(f"input file '{input_parquet}' does not exist")
+    logger.info(f'loading parquet file {input_parquet}')
+    df = pd.read_parquet(input_parquet)
+    # df['Class'] = df['Class'].astype(str)
+    df.to_csv(output_csv, index=False, header=True)
+    logger.info(f'wrote to csv at {output_csv}')
+##################
+
 def load_arff_file(input_arff: str) -> pd.DataFrame:
     """convert arff file to parquet"""
     if not os.path.exists(input_arff):

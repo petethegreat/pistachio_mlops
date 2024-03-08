@@ -310,6 +310,8 @@ class PSImetrics(FeatureMetric):
     @classmethod
     def load(cls, filepath: str):
         """load object from file, return result"""
+        logger.info(f'loading psi object from path {filepath}')
+        print(f'loading psi object from path {filepath}')
         with open(filepath, 'rb') as infile:
             obj = pickle.load(infile)
         logger.info(f"read data from {filepath}")

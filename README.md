@@ -44,16 +44,6 @@ test load_data
 test validate_data
 ```docker run  -v ./pipeline/data:/data pistachio_base:0.0.1 validate_data.py /data/pistachio_imagetest_train.pqt /data/pistachio_schema.json```
 
-## Compoents
-
-components dir is redundant, container specs can be defined in python in kfp v2
-
-
-# todo
- - config - project id, artifact registry locations, etc.
- - build image
- - generate component definitions. (script, load stuff from config.)
- - build pipeline, push pipeline, run it.
 
 
 <!-- https://stackoverflow.com/questions/68348026/run-id-in-kubeflow-pipelines-on-vertex-ai
@@ -62,16 +52,11 @@ dsl.PIPELINE_JOB_ID_PLACEHOLDER
 https://github.com/GoogleCloudPlatform/professional-services/blob/main/examples/vertex_pipeline/components/component_base/src/train.py -->
 
 # TODO
- - modify metadata of datasets to contain list of features/targets, don't need to pass this around as an artifact.
-  - could hold a pointer to PSI this way also?
- - modify paths of png files output_plot.path = output_plot.path + '.png', same with json
 
-- move components from container components to lightweight components - can specify our image as base image. still leaves image definition seperate from pipeline defnition.
+  - kfp has a local runner/docker setup for testing components. look at this instead of test_images.sh
+  - XGboost warnings - can disable them in the container code - verbosity 0 or some other flag
 
 
-## Batch prediction
-  - current code does not do the preprocessing. Can get this to use a fastapi image
-  - need to pass `--port $AIP_HTTP_PORT` in the args to the component, so that fastapi gets the port it should use.
 
   
 
