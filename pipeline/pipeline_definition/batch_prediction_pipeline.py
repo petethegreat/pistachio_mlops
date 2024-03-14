@@ -84,8 +84,11 @@ def pistachio_prediction_pipeline(
         schema_file_path=schema_file_path)\
         .set_display_name('validate sample data')
 
+
+    # strip the label/target off here 
     preprocess_sample_data_task = preprocess_data(
-        input_file=sample_data_task.outputs['output_sample'])\
+        input_file=sample_data_task.outputs['output_sample'],
+        with_target=False)\
         .after(validate_inference_data_task)\
         .set_display_name('preprocess sample data')
 
@@ -102,11 +105,16 @@ def pistachio_prediction_pipeline(
 
     # convert parquet to csv for input
     # define gcs path for output - add jobid to prefix - must be done in component
+    input_gcs_csv_path =f'{input_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/pistachio_input.csv'
+    output_gcs_csv_path = f'gs://{bucket_name}/{output_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/'
+
     prepare_csv_task = prepare_csv_op(
         storage_bucket=bucket_name,
+        sample_seed=sample_seed,
+        job_id=dsl.PIPELINE_JOB_ID_PLACEHOLDER,
+        input_dir=input_csv_path,
+        output_dir=output_csv_path,
         input_parquet_data=preprocess_sample_data_task.outputs["output_file"],
-        input_gcs_csv_path=f'{input_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/pistachio_input.csv',
-        #output_gcs_csv_path=f'{output_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/',
     )
     
     batch_predict_task = ModelBatchPredictOp(
@@ -115,9 +123,9 @@ def pistachio_prediction_pipeline(
         job_display_name='pistachio_classifier_batch_prediction',
         model=get_model_task.outputs['model_artifact'],
         machine_type='e2-standard-2',
-        gcs_source_uris=[f'gs://{bucket_name}/{input_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/pistachio_input.csv'],
+        gcs_source_uris=prepare_csv_task.outputs['gcs_input_csv_uri'],
         instances_format='csv',
-        gcs_destination_output_uri_prefix=f'gs://{bucket_name}/{output_csv_path}/{sample_seed}/{dsl.PIPELINE_JOB_ID_PLACEHOLDER}/'
+        gcs_destination_output_uri_prefix=prepare_csv_task.outputs['gcs_output_csv_uri']
         )\
         .after(prepare_csv_task)\
         .set_display_name('batch prediction task')

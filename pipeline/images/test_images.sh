@@ -120,10 +120,13 @@ echo "testing serving container - inference"
 docker run --rm -d --name pistachio_serving \
   -v $HOME/.config/gcloud/application_default_credentials.json:/gcloud_adc/application_default_credentials.json:ro \
   -e "GOOGLE_APPLICATION_CREDENTIALS=/gcloud_adc/application_default_credentials.json" \
-  -e "AIP_STORAGE_URI=gs://pistachio_pipeline_sbx_bucket/pipeline_output_location/783276698888/pistachio-training-pipeline-20240113094212/train-final-model_-4026086125473890304/" \
+  -e "AIP_STORAGE_URI=gs://pistachio_pipeline_sbx_bucket/pistachio_model_artifacts/7894906903803723776/" \
   -e GOOGLE_CLOUD_PROJECT=pistachio-mlops-sbx \
   -p 8080:8080 \
   pistachio_serving:0.0.1
+
+# "AIP_STORAGE_URI=gs://pistachio_pipeline_sbx_bucket/pistachio_model_artifacts/7894906903803723776/"
+# "AIP_STORAGE_URI=gs://pistachio_pipeline_sbx_bucket/pipeline_output_location/783276698888/pistachio-training-pipeline-20240113094212/train-final-model_-4026086125473890304/"
 
 # --entrypoint uvicorn pistachio_base:0.0.1 serve_predictions:app --port 8080 --host 0.0.0.0
 # check health

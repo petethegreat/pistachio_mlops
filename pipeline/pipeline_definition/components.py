@@ -10,6 +10,11 @@ from kfp.dsl import ConcatPlaceholder
 from google_cloud_pipeline_components.types.artifact_types import VertexModel
 import yaml
 
+from typing import NamedTuple
+
+
+
+
 CONFIG_FILE_PATH = '../config/config.yaml'
 
 with open(CONFIG_FILE_PATH,'r') as config_file:
@@ -21,6 +26,11 @@ base_image_name = CONFIG.get('base_image_name', 'the_base_image:0.0.0')
 base_image_location = f'{artifact_registry}/{base_image_name}'
 vertex_image_name = CONFIG.get('vertex_image_name','the_vertex_image:0.0.0')
 vertex_image_location = f'{artifact_registry}/{vertex_image_name}'
+
+class BatchPredictionPaths(NamedTuple):
+    gcs_input_csv_uri: List[str]
+    gcs_output_csv_uri: str
+
 
 @dsl.component(base_image=base_image_location)
 def sample_data(input_file_path: str,
@@ -115,6 +125,7 @@ def validate_data(
 def preprocess_data(
     input_file: Input[Dataset],
     output_file: Output[Dataset],
+    with_target: bool=True
     )-> None:
     """preprocess_data component
 
@@ -130,7 +141,7 @@ def preprocess_data(
 
     output_file.path = output_file.path + '.pqt'
 
-    features = preprocess_data_features( input_file.path, output_file.path)
+    features = preprocess_data_features( input_file.path, output_file.path, with_target=with_target)
     output_file.metadata['features'] = features
 #############################################################################
 
@@ -729,24 +740,18 @@ def get_model_artifacts_from_registry(
     model_artifact.metadata = metadata
 
     psi_artifact.uri = model_info['artifactUri'] + 'psi_artifact.pkl'
-
-
-
-
-
-    #
-    # for k,v in model.to_dict().items():
-    #     print(f"{k}: {v}")
 #############################################################################
+
 @dsl.component(base_image=base_image_location)
 def prepare_csv_op(
         storage_bucket: str,
+        sample_seed: int,
+        job_id: str,
+        input_dir: str,
+        output_dir: str,
         input_parquet_data: Input[Dataset],
-        input_gcs_csv_path: str,
-        # output_gcs_csv_path: str,
-        prediction_input_csv: Output[Dataset],
-        # prediction_output_csv: Output[Dataset]
-    )-> str:
+        prediction_input_csv: Output[Dataset]
+    ) -> NamedTuple('BatchPredictionPaths', [('gcs_input_csv_uri', List[str]),('gcs_output_csv_uri',str)]):
     """
     - convert input parquet data to csv file
     - create dataset artifacts using paths defined
@@ -758,6 +763,12 @@ def prepare_csv_op(
     import json
     from pistachio.data_handling import parquet_to_csv
     from pistachio.utils import ensure_directory_exists
+    from typing import NamedTuple
+
+    class BatchPredictionPaths(NamedTuple):
+        gcs_input_csv_uri: List[str]
+        gcs_output_csv_uri: str
+
 
     logger = logging.getLogger('pistachio.prepare_csv_op')
 
@@ -768,7 +779,9 @@ def prepare_csv_op(
     logger.info('initial input path: {prediction_input_csv.path}')
     logger.info('initial input uri: {prediction_input_csv.uri}')
 
-    the_input_uri = f'gs://{storage_bucket}/{input_gcs_csv_path}'
+    the_input_uri = f'gs://{storage_bucket}/{input_dir}/{sample_seed}/{job_id}/pistachio_input.csv'
+    the_output_uri = f'gs://{storage_bucket}/{output_dir}/{sample_seed}/{job_id}/'
+
 
     prediction_input_csv.uri = the_input_uri
 
@@ -778,6 +791,12 @@ def prepare_csv_op(
     ensure_directory_exists(prediction_input_csv.path)
 
     parquet_to_csv(input_parquet_data.path, prediction_input_csv.path)
+
+    return BatchPredictionPaths([the_input_uri], the_output_uri)
+
+    # class BatchPredictionPaths(NamedTuple):
+    #     gcs_input_csv_uri: List[str]
+    #     gcs_output_csv_uri: str
 
     # prediction_output_csv.uri = output_gcs_csv_path
 

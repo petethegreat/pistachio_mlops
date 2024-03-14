@@ -17,7 +17,8 @@ logging.basicConfig(stream=sys.stdout, level=logging.DEBUG)
 
 def preprocess_data_features(
     input_file_path: str,
-    output_file_path: str
+    output_file_path: str,
+    with_target: bool=True
     ) -> List[str]:
     """do the preprocessing
 
@@ -30,7 +31,7 @@ def preprocess_data_features(
 
     input_df = load_parquet_file(input_file_path)
     logger.info('preprocessing')
-    output_df, features = preprocess(input_df)
+    output_df, features = preprocess(input_df, with_target=with_target)
 
     ensure_directory_exists(output_file_path)
 
@@ -44,7 +45,8 @@ def preprocess_data_features(
 def preprocess_data(
     input_file_path: str,
     output_file_path: str,
-    feature_list_path: str 
+    feature_list_path: str,
+    with_target: bool=True 
     ) -> None:
     """do the preprocessing
 

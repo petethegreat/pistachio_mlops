@@ -138,8 +138,10 @@ def validate_data_with_schema(in_df: pd.DataFrame, schema_file: str) -> pd.DataF
     the_schema.validate(in_df)
 
 
-def preprocess(in_raw_df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
-    """preprocess the data, do any cleaning, feature engineering, etc"""
+def preprocess(in_raw_df: pd.DataFrame, with_target: bool=True) -> Tuple[pd.DataFrame, List[str]]:
+    """preprocess the data, do any cleaning, feature engineering, etc
+    handle target variable if with_target = True, else ignore/discard it
+    """
     out_df = in_raw_df.copy()
 
     #cross some features
@@ -147,17 +149,18 @@ def preprocess(in_raw_df: pd.DataFrame) -> Tuple[pd.DataFrame, List[str]]:
 
     # reorder
     cols = [x for x in out_df.columns if x != 'Class']
-    out_df = out_df[cols + ['Class']]
 
-    # convert Class to categorical
-    class_type = CategoricalDtype(categories=['Siit_Pistachio', 'Kirmizi_Pistachio'])
-    out_df.Class = out_df.Class.astype(class_type)
-    # create a binary column
-    out_df['Target'] = out_df.Class.cat.codes
-    # gather list of features
-    features = [x for x in out_df.columns if x not in ['Class','Target']]
+    if with_target:
+        out_df = out_df[cols + ['Class']]
+        # convert Class to categorical
+        class_type = CategoricalDtype(categories=['Siit_Pistachio', 'Kirmizi_Pistachio'])
+        out_df.Class = out_df.Class.astype(class_type)
+        # create a binary column
+        out_df['Target'] = out_df.Class.cat.codes
+    else: 
+        out_df = out_df[cols]
 
-    return out_df, features
+    return out_df, cols
 
 
 

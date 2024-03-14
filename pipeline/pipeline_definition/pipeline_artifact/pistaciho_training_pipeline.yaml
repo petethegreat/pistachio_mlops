@@ -347,6 +347,11 @@ components:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
           description: path to raw data to be preprocessed
+      parameters:
+        with_target:
+          defaultValue: true
+          isOptional: true
+          parameterType: BOOLEAN
     outputDefinitions:
       artifacts:
         output_file:
@@ -362,6 +367,11 @@ components:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
           description: path to raw data to be preprocessed
+      parameters:
+        with_target:
+          defaultValue: true
+          isOptional: true
+          parameterType: BOOLEAN
     outputDefinitions:
       artifacts:
         output_file:
@@ -902,14 +912,14 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef preprocess_data(\n    input_file: Input[Dataset],\n    output_file:\
-          \ Output[Dataset],\n    )-> None:\n    \"\"\"preprocess_data component\n\
-          \n    Args:\n        input_file (Input[Dataset]): path to raw data to be\
-          \ preprocessed\n        output_file (Output[Dataset]): path where preprocessed\
-          \ data will be written \n        feature_list (Output[Artifact]): path to\
-          \ where list of feature columns will be written as json\n\n    Returns:\n\
+          \ Output[Dataset],\n    with_target: bool=True\n    )-> None:\n    \"\"\"\
+          preprocess_data component\n\n    Args:\n        input_file (Input[Dataset]):\
+          \ path to raw data to be preprocessed\n        output_file (Output[Dataset]):\
+          \ path where preprocessed data will be written \n        feature_list (Output[Artifact]):\
+          \ path to where list of feature columns will be written as json\n\n    Returns:\n\
           \        None\n    \"\"\"   \n    from preprocess_data import preprocess_data_features\n\
           \n    output_file.path = output_file.path + '.pqt'\n\n    features = preprocess_data_features(\
-          \ input_file.path, output_file.path)\n    output_file.metadata['features']\
+          \ input_file.path, output_file.path, with_target=with_target)\n    output_file.metadata['features']\
           \ = features\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-preprocess-data-2:
@@ -939,14 +949,14 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef preprocess_data(\n    input_file: Input[Dataset],\n    output_file:\
-          \ Output[Dataset],\n    )-> None:\n    \"\"\"preprocess_data component\n\
-          \n    Args:\n        input_file (Input[Dataset]): path to raw data to be\
-          \ preprocessed\n        output_file (Output[Dataset]): path where preprocessed\
-          \ data will be written \n        feature_list (Output[Artifact]): path to\
-          \ where list of feature columns will be written as json\n\n    Returns:\n\
+          \ Output[Dataset],\n    with_target: bool=True\n    )-> None:\n    \"\"\"\
+          preprocess_data component\n\n    Args:\n        input_file (Input[Dataset]):\
+          \ path to raw data to be preprocessed\n        output_file (Output[Dataset]):\
+          \ path where preprocessed data will be written \n        feature_list (Output[Artifact]):\
+          \ path to where list of feature columns will be written as json\n\n    Returns:\n\
           \        None\n    \"\"\"   \n    from preprocess_data import preprocess_data_features\n\
           \n    output_file.path = output_file.path + '.pqt'\n\n    features = preprocess_data_features(\
-          \ input_file.path, output_file.path)\n    output_file.metadata['features']\
+          \ input_file.path, output_file.path, with_target=with_target)\n    output_file.metadata['features']\
           \ = features\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-psi-result-logging:

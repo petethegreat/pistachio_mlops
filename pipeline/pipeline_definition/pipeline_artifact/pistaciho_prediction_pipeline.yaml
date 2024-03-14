@@ -362,8 +362,14 @@ components:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
       parameters:
-        input_gcs_csv_path:
+        input_dir:
           parameterType: STRING
+        job_id:
+          parameterType: STRING
+        output_dir:
+          parameterType: STRING
+        sample_seed:
+          parameterType: NUMBER_INTEGER
         storage_bucket:
           parameterType: STRING
     outputDefinitions:
@@ -373,7 +379,9 @@ components:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
       parameters:
-        Output:
+        gcs_input_csv_uri:
+          parameterType: LIST
+        gcs_output_csv_uri:
           parameterType: STRING
   comp-preprocess-data:
     executorLabel: exec-preprocess-data
@@ -384,6 +392,11 @@ components:
             schemaTitle: system.Dataset
             schemaVersion: 0.0.1
           description: path to raw data to be preprocessed
+      parameters:
+        with_target:
+          defaultValue: true
+          isOptional: true
+          parameterType: BOOLEAN
     outputDefinitions:
       artifacts:
         output_file:
@@ -470,9 +483,7 @@ deploymentSpec:
           \ = model_info['name']\n    model_uri = f'https://{model_registry_location}-aiplatform.googleapis.com/v1/{model_name}'\n\
           \    # model_artifact.uri = model_uri\n    metadata={\n          'resourceName':\
           \ model_name}\n    model_artifact.metadata = metadata\n\n    psi_artifact.uri\
-          \ = model_info['artifactUri'] + 'psi_artifact.pkl'\n\n\n\n\n\n    #\n  \
-          \  # for k,v in model.to_dict().items():\n    #     print(f\"{k}: {v}\"\
-          )\n\n"
+          \ = model_info['artifactUri'] + 'psi_artifact.pkl'\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_gcp_aip:0.0.1
     exec-infer-monitoring:
       container:
@@ -589,25 +600,34 @@ deploymentSpec:
 
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
-          \ *\n\ndef prepare_csv_op(\n        storage_bucket: str,\n        input_parquet_data:\
-          \ Input[Dataset],\n        input_gcs_csv_path: str,\n        # output_gcs_csv_path:\
-          \ str,\n        prediction_input_csv: Output[Dataset],\n        # prediction_output_csv:\
-          \ Output[Dataset]\n    )-> str:\n    \"\"\"\n    - convert input parquet\
-          \ data to csv file\n    - create dataset artifacts using paths defined\n\
+          \ *\n\ndef prepare_csv_op(\n        storage_bucket: str,\n        sample_seed:\
+          \ int,\n        job_id: str,\n        input_dir: str,\n        output_dir:\
+          \ str,\n        input_parquet_data: Input[Dataset],\n        prediction_input_csv:\
+          \ Output[Dataset]\n    ) -> NamedTuple('BatchPredictionPaths', [('gcs_input_csv_uri',\
+          \ List[str]),('gcs_output_csv_uri',str)]):\n    \"\"\"\n    - convert input\
+          \ parquet data to csv file\n    - create dataset artifacts using paths defined\n\
           \    \"\"\"\n\n    import logging\n    from google.cloud import storage\n\
           \    import kfp\n    import json\n    from pistachio.data_handling import\
           \ parquet_to_csv\n    from pistachio.utils import ensure_directory_exists\n\
-          \n    logger = logging.getLogger('pistachio.prepare_csv_op')\n\n    # https://www.kubeflow.org/docs/components/pipelines/v2/components/lightweight-python-components/#install_kfp_package\n\
+          \    from typing import NamedTuple\n\n    class BatchPredictionPaths(NamedTuple):\n\
+          \        gcs_input_csv_uri: List[str]\n        gcs_output_csv_uri: str\n\
+          \n\n    logger = logging.getLogger('pistachio.prepare_csv_op')\n\n    #\
+          \ https://www.kubeflow.org/docs/components/pipelines/v2/components/lightweight-python-components/#install_kfp_package\n\
           \    # kfp is installed at runtime by default\n\n    # run_id = kfp.dsl.RUN_ID_PLACEHOLDER\n\
           \    logger.info('initial input path: {prediction_input_csv.path}')\n  \
           \  logger.info('initial input uri: {prediction_input_csv.uri}')\n\n    the_input_uri\
-          \ = f'gs://{storage_bucket}/{input_gcs_csv_path}'\n\n    prediction_input_csv.uri\
-          \ = the_input_uri\n\n    logger.info('modified input path: {prediction_input_csv.path}')\n\
-          \    logger.info('modified input uri: {prediction_input_csv.uri}')\n\n \
-          \   ensure_directory_exists(prediction_input_csv.path)\n\n    parquet_to_csv(input_parquet_data.path,\
-          \ prediction_input_csv.path)\n\n    # prediction_output_csv.uri = output_gcs_csv_path\n\
-          \n    # storage_client = storage.Client()\n    # bucket = storage_client.bucket(storage_bucket)\n\
-          \n    # # upload model artifact\n    # model_artifact_filename = model.path.split('/')[-1]\n\
+          \ = f'gs://{storage_bucket}/{input_dir}/{sample_seed}/{job_id}/pistachio_input.csv'\n\
+          \    the_output_uri = f'gs://{storage_bucket}/{output_dir}/{sample_seed}/{job_id}/'\n\
+          \n\n    prediction_input_csv.uri = the_input_uri\n\n    logger.info('modified\
+          \ input path: {prediction_input_csv.path}')\n    logger.info('modified input\
+          \ uri: {prediction_input_csv.uri}')\n\n    ensure_directory_exists(prediction_input_csv.path)\n\
+          \n    parquet_to_csv(input_parquet_data.path, prediction_input_csv.path)\n\
+          \n    return BatchPredictionPaths([the_input_uri], the_output_uri)\n\n \
+          \   # class BatchPredictionPaths(NamedTuple):\n    #     gcs_input_csv_uri:\
+          \ List[str]\n    #     gcs_output_csv_uri: str\n\n    # prediction_output_csv.uri\
+          \ = output_gcs_csv_path\n\n    # storage_client = storage.Client()\n   \
+          \ # bucket = storage_client.bucket(storage_bucket)\n\n    # # upload model\
+          \ artifact\n    # model_artifact_filename = model.path.split('/')[-1]\n\
           \    # destination_blob_name = f'{artifact_path}/{run_id}/{model_artifact_filename}'\n\
           \n    # blob = bucket.blob(destination_blob_name)\n    # blob.upload_from_filename(model.path)\n\
           \n"
@@ -639,14 +659,14 @@ deploymentSpec:
           '
         - "\nimport kfp\nfrom kfp import dsl\nfrom kfp.dsl import *\nfrom typing import\
           \ *\n\ndef preprocess_data(\n    input_file: Input[Dataset],\n    output_file:\
-          \ Output[Dataset],\n    )-> None:\n    \"\"\"preprocess_data component\n\
-          \n    Args:\n        input_file (Input[Dataset]): path to raw data to be\
-          \ preprocessed\n        output_file (Output[Dataset]): path where preprocessed\
-          \ data will be written \n        feature_list (Output[Artifact]): path to\
-          \ where list of feature columns will be written as json\n\n    Returns:\n\
+          \ Output[Dataset],\n    with_target: bool=True\n    )-> None:\n    \"\"\"\
+          preprocess_data component\n\n    Args:\n        input_file (Input[Dataset]):\
+          \ path to raw data to be preprocessed\n        output_file (Output[Dataset]):\
+          \ path where preprocessed data will be written \n        feature_list (Output[Artifact]):\
+          \ path to where list of feature columns will be written as json\n\n    Returns:\n\
           \        None\n    \"\"\"   \n    from preprocess_data import preprocess_data_features\n\
           \n    output_file.path = output_file.path + '.pqt'\n\n    features = preprocess_data_features(\
-          \ input_file.path, output_file.path)\n    output_file.metadata['features']\
+          \ input_file.path, output_file.path, with_target=with_target)\n    output_file.metadata['features']\
           \ = features\n\n"
         image: northamerica-northeast2-docker.pkg.dev/pistachio-mlops-sbx/pistachio-base/pistachio_base:0.0.1
     exec-sample-data:
@@ -780,12 +800,13 @@ root:
                 producerTask: get-model-artifacts-from-registry
           parameters:
             gcs_destination_output_uri_prefix:
-              runtimeValue:
-                constant: gs://pistachio_pipeline_sbx_bucket/pistachio_prediction_output/{{$.inputs.parameters['pipelinechannel--sample_seed']}}/{{$.pipeline_job_uuid}}/
+              taskOutputParameter:
+                outputParameterKey: gcs_output_csv_uri
+                producerTask: prepare-csv-op
             gcs_source_uris:
-              runtimeValue:
-                constant:
-                - gs://pistachio_pipeline_sbx_bucket/pistachio_prediction_input/{{channel:task=;name=sample_seed;type=Integer;}}/{{$.pipeline_job_uuid}}/pistachio_input.csv
+              taskOutputParameter:
+                outputParameterKey: gcs_input_csv_uri
+                producerTask: prepare-csv-op
             instances_format:
               runtimeValue:
                 constant: csv
@@ -798,8 +819,6 @@ root:
             machine_type:
               runtimeValue:
                 constant: e2-standard-2
-            pipelinechannel--sample_seed:
-              componentInputParameter: sample_seed
             project:
               componentInputParameter: project_id
         taskInfo:
@@ -818,10 +837,16 @@ root:
                 outputArtifactKey: output_file
                 producerTask: preprocess-data
           parameters:
-            input_gcs_csv_path:
+            input_dir:
               runtimeValue:
-                constant: pistachio_prediction_input/{{$.inputs.parameters['pipelinechannel--sample_seed']}}/{{$.pipeline_job_uuid}}/pistachio_input.csv
-            pipelinechannel--sample_seed:
+                constant: pistachio_prediction_input
+            job_id:
+              runtimeValue:
+                constant: '{{$.pipeline_job_uuid}}'
+            output_dir:
+              runtimeValue:
+                constant: pistachio_prediction_output
+            sample_seed:
               componentInputParameter: sample_seed
             storage_bucket:
               runtimeValue:
@@ -842,6 +867,10 @@ root:
               taskOutputArtifact:
                 outputArtifactKey: output_sample
                 producerTask: sample-data
+          parameters:
+            with_target:
+              runtimeValue:
+                constant: false
         taskInfo:
           name: preprocess sample data
       sample-data:
