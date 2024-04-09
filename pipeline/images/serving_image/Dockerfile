@@ -4,7 +4,7 @@ copy requirements.txt /requirements.txt
 run pip3 install -r /requirements.txt --no-cache-dir
 copy ./src/ /serving_image
 workdir /serving_image
-
+ 
 EXPOSE 8080
 
 entrypoint ["uvicorn"]

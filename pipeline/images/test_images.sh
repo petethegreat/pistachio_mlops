@@ -13,6 +13,7 @@ PSI_RESULTS_JSON='./test_output/test_psi_results.json'
 
 IMAGE='pistachio_base:0.0.1'
 
+GCP_MODEL_ARTIFACT="gs://pistachio_pipeline_sbx_bucket/pistachio_model_artifacts/4987551869359357952"
 # these are all paths *in* the container, '/test_output/' should be specified absolutely
 TRAIN_PATH="/test_output/load_data_out/train.pqt"
 TEST_PATH="/test_output/load_data_out/test.pqt"
@@ -130,10 +131,10 @@ docker run --rm -d --name pistachio_serving \
 
 # --entrypoint uvicorn pistachio_base:0.0.1 serve_predictions:app --port 8080 --host 0.0.0.0
 # check health
-sleep 5
+sleep 10
 health=$(curl -s localhost:8080/health)
 echo $health
-if [ $health -eq "200" ] 
+if [ $health -eq "{}" ] 
 then echo "health check ok $health" 
 else echo "health check not ok $health" 
 fi 
@@ -143,7 +144,13 @@ fi
 # wait a bit for health to be ok
 
 # test predict with data
-response=$(curl -H "Content-Type: application/json" --data @test_input/inference_request.json http://localhost:8080/predict)
+# input format set to vertex batch prediction does not match inference_request.json or inference_request2.json
+# response=$(curl -H "Content-Type: application/json" --data @test_input/inference_request.json http://localhost:8080/predict)
+# echo $response
+
+# response=$(curl -H "Content-Type: application/json" --data @test_input/inference_request2.json http://localhost:8080/predict)
+# echo $response
+response=$(curl -H "Content-Type: application/json" --data @test_input/inference_request3.json http://localhost:8080/predict)
 echo $response
 
 docker stop pistachio_serving

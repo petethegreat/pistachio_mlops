@@ -1,0 +1,45 @@
+{
+    "instances":
+    [
+        {
+            "AREA": 63391,
+            "PERIMETER":  1568.405,
+            "MAJOR_AXIS":  390.3396,
+            "MINOR_AXIS":  236.7461,
+            "ECCENTRICITY":  0.7951,
+            "EQDIASQ":  284.0984,
+            "SOLIDITY":  0.8665,
+            "CONVEX_AREA":  73160,
+            "EXTENT":  0.6394,
+            "ASPECT_RATIO":  1.6488,
+            "ROUNDNESS":  0.3238,
+            "COMPACTNESS":  0.7278,
+            "SHAPEFACTOR_1":  0.0062,
+            "SHAPEFACTOR_2":  0.0037,
+            "SHAPEFACTOR_3":  0.5297,
+            "SHAPEFACTOR_4":  0.8734,
+            "SOLIDITY_MAJOR": 338.229
+        },
+        {
+            "AREA": 68358,
+            "PERIMETER":  1942.187,
+            "MAJOR_AXIS":  410.8594,
+            "MINOR_AXIS":  234.7525,
+            "ECCENTRICITY":  0.8207,
+            "EQDIASQ":  295.0188,
+            "SOLIDITY":  0.8765,
+            "CONVEX_AREA":  77991,
+            "EXTENT":  0.6772,
+            "ASPECT_RATIO":  1.7502,
+            "ROUNDNESS":  0.2277,
+            "COMPACTNESS":  0.7181,
+            "SHAPEFACTOR_1":  0.006,
+            "SHAPEFACTOR_2":  0.0034,
+            "SHAPEFACTOR_3":  0.5156,
+            "SHAPEFACTOR_4":  0.9024,
+            "SOLIDITY_MAJOR": 360.1182
+        }
+    ],
+    "parameters": {"cat": "dog"}
+}
+

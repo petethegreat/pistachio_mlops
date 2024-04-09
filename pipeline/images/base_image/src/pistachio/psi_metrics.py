@@ -285,7 +285,8 @@ class PSImetrics(FeatureMetric):
         psi_values = []
         for col in self._categorical_cols:
             if col not in eval_data.columns:
-                raise ValueError(f'Error column {col} is missing from data to be evaluated')
+                logger.warning(f' column {col} is missing from data to be evaluated')
+                continue
             psi_val, details = self._evaluate_categorical_column(eval_data[col])
             psi_values.append((col, psi_val, 'categorical', eval_data.dtypes.get(col)))
             results[col] = details
